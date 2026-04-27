@@ -1,0 +1,10 @@
+amitkot/whisper-tiny-he-acft
+ivrit-ai/whisper-large-v3-turbo-ct2
+ivrit-ai/whisper-large-v3-ct2
+
+
+amitkot/whisper-tiny-he-acft (CPU Version with int8 Quant):
+ct2-transformers-converter --model ./local_models/amitkot/whisper-tiny-he-acft --output_dir whisper-tiny-he-acft-ct2-cpu --copy_files tokenizer.json added_tokens.json tokenizer_config.json --quantization int8
+
+By the way, this is bad ^ don't use it. Just a POC 
+of how to convert .safetensors into ct2 compatible weights (i.e .bin)

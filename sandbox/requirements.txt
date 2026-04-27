@@ -1,0 +1,9 @@
+pandas
+matplotlib
+PyQt6
+sounddevice
+faster_whisper
+keyboard
+argparse
+ctranslate2
+transformers[torch]
