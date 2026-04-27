@@ -1,0 +1,15 @@
+1. Model List:
+    amitkot/whisper-tiny-he-acft
+    ivrit-ai/whisper-large-v3-turbo-ct2 # Most Successful So far
+    ivrit-ai/whisper-large-v3-ct2
+
+
+2. Converting .safetensors to ct2 .bin format -> 
+    amitkot/whisper-tiny-he-acft (CPU Version with int8 Quant):
+        ct2-transformers-converter --model ./local_models/amitkot/whisper-tiny-he-acft --output_dir whisper-tiny-he-acft-ct2-cpu --copy_files tokenizer.json added_tokens.json tokenizer_config.json --quantization int8
+
+3.  download_model_hf.py -> Download Repositories from Huggingface:
+    python .\source\download_model_hf.py --modelname=ivrit-ai/whisper-large-v3-turbo-ct2 --outputpath=local_models/ivrit_ai_whisper_turbo
+
+4. test_realtime_audio.py -> Testing Local models for CPU/GPU Performance (If available)
+    The intention is to migrate to C/C++ and create a server that listens to filtered audio-input
