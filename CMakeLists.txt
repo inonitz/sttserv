@@ -70,9 +70,10 @@ declare_optional_interface_library_lto()
 declare_optional_interface_default_project_configuration()
 
 
+add_subdirectory(dependencies/cxxopts)
+add_subdirectory(dependencies/miniaudio)
 add_subdirectory(dependencies/util2)
 add_subdirectory(dependencies/whispercpp)
-add_subdirectory(dependencies/miniaudio)
 add_subdirectory(sandbox)
 # add_subdirectory(sttserv)
 # add_subdirectory(benchmark)

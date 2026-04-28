@@ -174,7 +174,7 @@ if ($Action -eq "cleanbuild") {
 
 # 2. Configure
 if ($Action -eq "configure" -or $Action -eq "cleanbuild") {
-    $CMAKE_ARGLIST += "-DGIT_SUBMODULE=OFF"
+    $CMAKE_ARGLIST += "-DGIT_SUBMODULE=ON"
     Run-Command "mkdir $CMAKE_FINAL_BUILD_DIR" { New-Item -ItemType Directory -Path $CMAKE_FINAL_BUILD_DIR -Force | Out-Null }
     Run-Command "CMake Configure" { cmake -S . -B $CMAKE_FINAL_BUILD_DIR -G "Ninja" $CMAKE_ARGLIST }
 }
