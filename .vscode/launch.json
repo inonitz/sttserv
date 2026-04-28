@@ -5,12 +5,11 @@
     "version": "0.2.0",
     "configurations": [
         // Windows Debug Tests
-        // CXX Tests
         {
             "type": "lldb",
             "request": "launch",
             "name": "LLDB (Windows-x86_64-Static-Debug-cxx)",
-            "program": "${workspaceFolder}\\build\\debug\\static\\bin\\test_treelib_gtest_serial.exe",
+            "program": "${workspaceFolder}\\build\\debug\\static\\bin\\sttserver_sandbox.exe",
             "args": [],
             "cwd": "${workspaceFolder}",
             "stopOnEntry": false,
@@ -23,65 +22,19 @@
             "type": "lldb",
             "request": "launch",
             "name": "LLDB (Windows-x86_64-Dll-Debug-cxx)",
-            "program": "${workspaceFolder}\\build\\debug\\shared\\bin\\test_treelib_gtest_serial.exe",
+            "program": "${workspaceFolder}\\build\\debug\\shared\\bin\\sttserver_sandbox.exe",
             "args": [],
             "cwd": "${workspaceFolder}",
             "stopOnEntry": false,
             "initCommands": [ "settings set target.process.follow-fork-mode child" ]
         },
-
-        // C Tests
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "LLDB (Windows-x86_64-Static-Debug-c)",
-            "program": "${workspaceFolder}\\build\\debug\\static\\bin\\test_treelib_cmocka.exe",
-            "args": [],
-            "cwd": "${workspaceFolder}",
-            "stopOnEntry": false,
-            "initCommands": [ "settings set target.process.follow-fork-mode child" ]
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "LLDB (Windows-x86_64-Dll-Debug-c)",
-            "program": "${workspaceFolder}\\build\\debug\\shared\\bin\\test_treelib_cmocka.exe",
-            "args": [],
-            "cwd": "${workspaceFolder}",
-            "stopOnEntry": false,
-            "initCommands": [ "settings set target.process.follow-fork-mode child" ]
-        },
-
-        // Debug Benchmark
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "LLDB (Windows-x86_64-Static-Debug-Benchmark)",
-            "program": "${workspaceFolder}\\build\\debug\\static\\bin\\debug_benchmark_treelib.exe",
-            "args": [],
-            "cwd": "${workspaceFolder}",
-            "stopOnEntry": false,
-            "initCommands": [ "settings set target.process.follow-fork-mode child" ]
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "LLDB (Windows-x86_64-Dll-Debug-Benchmark)",
-            "program": "${workspaceFolder}\\build\\debug\\shared\\bin\\debug_benchmark_treelib.exe",
-            "args": [],
-            "cwd": "${workspaceFolder}",
-            "stopOnEntry": false,
-            "initCommands": [ "settings set target.process.follow-fork-mode child" ]
-        },
-
 
         // Linux Debug Tests
-        // CXX Tests
         {
             "type": "lldb",
             "request": "launch",
             "name": "LLDB (Linux-x86_64-Static-Debug-cxx)",
-            "program": "${workspaceFolder}/build/debug/static/bin/test_treelib_gtest_serial",
+            "program": "${workspaceFolder}/build/debug/static/bin/sttserver_sandbox",
             "args": [],
             "cwd": "${workspaceFolder}",
             "stopOnEntry": false,
@@ -91,55 +44,11 @@
             "type": "lldb",
             "request": "launch",
             "name": "LLDB (Linux-x86_64-Shared-Debug-cxx)",
-            "program": "${workspaceFolder}/build/debug/shared/bin/test_treelib_gtest_serial",
+            "program": "${workspaceFolder}/build/debug/shared/bin/sttserver_sandbox",
             "args": [],
             "cwd": "${workspaceFolder}",
             "stopOnEntry": false,
             "initCommands": [ "settings set target.process.follow-fork-mode child" ]
-        },
-
-        // C Tests
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "LLDB (Linux-x86_64-Static-Debug-c)",
-            "program": "${workspaceFolder}/build/debug/static/bin/test_treelib_cmocka",
-            "args": [],
-            "cwd": "${workspaceFolder}",
-            "stopOnEntry": false,
-            "initCommands": [ "settings set target.process.follow-fork-mode child" ]
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "LLDB (Linux-x86_64-Shared-Debug-c)",
-            "program": "${workspaceFolder}/build/debug/shared/bin/test_treelib_cmocka",
-            "args": [],
-            "cwd": "${workspaceFolder}",
-            "stopOnEntry": false,
-            "initCommands": [ "settings set target.process.follow-fork-mode child" ]
-        },
-
-        // Benchmark Debug
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "LLDB (Linux-x86_64-Static-Debug-Benchmark)",
-            "program": "${workspaceFolder}/build/debug/static/bin/benchmark_treelib",
-            "args": [],
-            "cwd": "${workspaceFolder}",
-            "stopOnEntry": false,
-            "initCommands": [ "settings set target.process.follow-fork-mode child" ]
-        },
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "LLDB (Linux-x86_64-Shared-Debug-Benchmark)",
-            "program": "${workspaceFolder}/build/debug/shared/bin/benchmark_treelib",
-            "args": [],
-            "cwd": "${workspaceFolder}",
-            "stopOnEntry": false,
-            "initCommands": [ "settings set target.process.follow-fork-mode child" ]
-        },
+        }
     ]
 }

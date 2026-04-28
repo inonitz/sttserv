@@ -3,7 +3,9 @@ project(sttserver_sandbox C CXX)
 
 
 set(SOURCES
-    source/test.cpp
+    source/capture_play_mic.cpp
+    source/miniaudio_impl.c
+    # source/test_sdl3_audio.cpp
 )
 
 
@@ -13,9 +15,9 @@ target_compile_features(${PROJECT_NAME} INTERFACE
     cxx_std_17
 )
 target_link_libraries(${PROJECT_NAME} PRIVATE 
-    UTIL2::util2
+    miniaudio
     whisper
-    SDL3::SDL3
+    UTIL2::util2
 )
 
 

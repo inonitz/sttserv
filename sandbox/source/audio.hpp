@@ -9,6 +9,9 @@
 #include <mutex>
 
 
+/* This works for SDL2, not SDL3 */
+
+
 class audio_async {
 public:
     audio_async(int len_ms);
