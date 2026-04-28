@@ -1,0 +1,16 @@
+# Build & Compile (Release)
+git submodule init
+git submodule update --recursive
+cmake -S . -B build -G Ninja -DEXPORT_COMPILE_COMMANDS=1 -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS="-O3 -march=native" -DCMAKE_CXX_FLAGS="-O3 -march=native"
+cd build ; ninja all -j8 ; cd ../
+
+cd build\bin ; .\tailslayer_benchmark.exe --arm dual_stress --samples 5000000 --stress-threads 4 --channels 2 --channel-bit 10 --raw-prefix 4st_2ch_bit10 ; cd ../../
+
+$ArgList = "/c `"start /realtime /b tailslayer_benchmark.exe --arm single_stress --samples 20000000 --stress-threads 8 --channels 1 > output.log 2>&1`"
+Start-Process -verb runas cmd.exe -ArgumentList $ArgList
+
+
+Start-Process cmd.exe -Verb RunAs -ArgumentList "/c cd /d ""$PWD\build\bin"" && start """" /realtime /b tailslayer_benchmark.exe --arm dual_stress --samples 5000000 --stress-threads 4 --channels 2 --channel-bit 10 --raw-prefix 4st_2ch_bit10 > output.log 2>&1"
+
+
+Start-Process cmd.exe -Verb RunAs -ArgumentList "/k cd /d ""$PWD"" && start """" /realtime /b python probe_bitrange.py -chb=5 -che=6 -chc=4"
