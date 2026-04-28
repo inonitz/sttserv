@@ -35,7 +35,6 @@
 	url = https://github.com/ggml-org/whisper.cpp
 	branch = master
 
-[submodule "dependencies/SDL2"]
-	path = dependencies/SDL2
-	url = https://github.com/libsdl-org/SDL
-	branch = SDL2
+[submodule "dependencies/miniaudio"]
+	path = dependencies/miniaudio
+	url = https://github.com/mackron/miniaudio
