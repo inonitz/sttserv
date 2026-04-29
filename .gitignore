@@ -1,5 +1,7 @@
 # Dependency Files
 dependencies/local_models/*
+dependencies/models/*
+
 
 # Build output
 build/

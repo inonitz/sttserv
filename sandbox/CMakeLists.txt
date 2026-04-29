@@ -3,12 +3,15 @@ project(sttserver_sandbox C CXX)
 
 
 set(SOURCES
-    source/capture_play_mic.cpp
+    source/audio.cpp
+    source/whisper_attempt.cpp
     source/miniaudio_impl.c
     source/whisper_init.cpp
+
 )
 
 set(HEADERS
+    include/sandbox/audio.hpp
     include/sandbox/whisper_init.hpp
 )
 

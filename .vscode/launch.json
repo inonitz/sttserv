@@ -8,9 +8,14 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "LLDB (Windows-x86_64-Static-Debug-cxx)",
-            "program": "${workspaceFolder}\\build\\debug\\static\\bin\\sttserver_sandbox.exe",
-            "args": [],
+            "name": "LLDB (Windows)",
+            "program": "${workspaceFolder}/build/debug/static/bin/sttserver_sandbox",
+            "args": [
+                "--model=dependencies\\local_models\\whisper-large-v3\\ggml-model.bin",
+                "--fa",
+                "--language=he",
+                "--threads=1"
+            ],
             "cwd": "${workspaceFolder}",
             "stopOnEntry": false,
             "initCommands": [

@@ -3,11 +3,7 @@
 #include <cxxopts.hpp>
 
 
-bool parse_args(int argc, char** argv, 
-    WhisperParameters&           outParams,
-    WhisperContextParameters& outCtxParams,
-    WhisperContextHandle*     outContext
-) {
+bool parse_args(int argc, char** argv, WhisperParameters& outParams) {
     cxxopts::Options cmdOptions(argv[0], "Whisper.cpp Argument Parser");
 
 
@@ -87,7 +83,7 @@ bool parse_args(int argc, char** argv,
 
 
 bool init_context(
-    WhisperParameters&           inArgParsed,
+    const WhisperParameters&  inArgParsed,
     WhisperContextParameters& outCtxParams,
     WhisperContextHandle*     outContext
 ) {
@@ -101,5 +97,5 @@ bool init_context(
     );
 
 
-    return outContext != nullptr;
+    return *outContext != nullptr;
 }

@@ -5,9 +5,10 @@
 #include <string>
 
 
-using WhisperContextParameters = struct whisper_context_params;
-using WhisperContext           = struct whisper_context;
-using WhisperContextHandle     = WhisperContext*;
+using WhisperContextParameters     = struct whisper_context_params;
+using WhisperFullContextParameters = struct whisper_full_params;
+using WhisperContext               = struct whisper_context;
+using WhisperContextHandle         = WhisperContext*;
 
 
 struct WhisperParameters 
@@ -46,14 +47,12 @@ struct WhisperParameters
 
 
 bool parse_args(int argc, char** argv, 
-    WhisperParameters&           outParameters,
-    WhisperContextParameters& outCtxParams,
-    WhisperContextHandle*     outContext
+    WhisperParameters& outParameters
 );
 
 
 bool init_context(
-    WhisperParameters& inArgParsed,
+    const WhisperParameters&  inArgParsed,
     WhisperContextParameters& outCtxParams,
     WhisperContextHandle*     outContext
 );

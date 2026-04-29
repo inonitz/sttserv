@@ -14,3 +14,7 @@ Start-Process cmd.exe -Verb RunAs -ArgumentList "/c cd /d ""$PWD\build\bin"" && 
 
 
 Start-Process cmd.exe -Verb RunAs -ArgumentList "/k cd /d ""$PWD"" && start """" /realtime /b python probe_bitrange.py -chb=5 -che=6 -chc=4"
+
+cd build\debug\static\bin ; .\sttserver_sandbox.exe --model="../../../../dependencies/local_models/whisper-large-v3/ggml-model.bin" --fa --step=0 --language=he ; cd ../../../../
+
+
