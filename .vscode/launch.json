@@ -8,7 +8,7 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "LLDB (Windows)",
+            "name": "LLDB (Windows, Static)",
             "program": "${workspaceFolder}/build/debug/static/bin/sttserver_sandbox",
             "args": [
                 "--model=dependencies\\local_models\\whisper-large-v3\\ggml-model.bin",
@@ -26,8 +26,8 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "LLDB (Windows-x86_64-Dll-Debug-cxx)",
-            "program": "${workspaceFolder}\\build\\debug\\shared\\bin\\sttserver_sandbox.exe",
+            "name": "LLDB (Windows, DLL)",
+            "program": "${workspaceFolder}/build/debug/shared/bin/sttserver_sandbox",
             "args": [],
             "cwd": "${workspaceFolder}",
             "stopOnEntry": false,
@@ -38,7 +38,7 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "LLDB (Linux-x86_64-Static-Debug-cxx)",
+            "name": "LLDB (Linux-x86_64-Static-Debug)",
             "program": "${workspaceFolder}/build/debug/static/bin/sttserver_sandbox",
             "args": [],
             "cwd": "${workspaceFolder}",
@@ -46,14 +46,21 @@
             "initCommands": [ "settings set target.process.follow-fork-mode child" ]
         },
         {
+            // Run the lldb server manually ->
+            // sudo ~/.vscode/extensions/vadimcn.vscode-lldb-1.12.1/lldb/bin/lldb-server platform --server --listen *:1234
             "type": "lldb",
             "request": "launch",
-            "name": "LLDB (Linux-x86_64-Shared-Debug-cxx)",
-            "program": "${workspaceFolder}/build/debug/shared/bin/sttserver_sandbox",
+            "name": "LLDB (Linux-x86_64-Static-Debug) Remote",
+            "program": "${workspaceFolder}/build/debug/static/bin/sttserver_sandbox",
             "args": [],
             "cwd": "${workspaceFolder}",
             "stopOnEntry": false,
-            "initCommands": [ "settings set target.process.follow-fork-mode child" ]
+            "initCommands": [ 
+                "settings set target.process.follow-fork-mode child",
+                "platform select remote-linux",
+                "platform connect connect://127.0.0.1:1234"
+            ],
+
         }
     ]
 }
