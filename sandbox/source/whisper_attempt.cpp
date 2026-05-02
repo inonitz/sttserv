@@ -204,33 +204,6 @@ void audioProcessCallbackConsumer()
     ma_uint32 framesToRead    = 0;
     void*     pReadBuffer = nullptr;
 
-    static const auto skf_detectVolume = [&framesToRead, &pReadBuffer]() {
-        if(!framesToRead || pReadBuffer == nullptr) {
-            return;
-        }
-
-        float* pSamples = (float*)pReadBuffer;
-        float maxAmp = 0.0f;
-        // Find the loudest sample in this chunk
-        for (ma_uint32 i = 0; i < framesToRead; ++i) {
-            maxAmp = std::max(std::abs(pSamples[i]), maxAmp);
-        }
-        
-
-        // Print a simple VU meter: [#######       ]
-        // int barWidth = 40;
-        // int scaled = (int)(maxAmp * barWidth);
-        // fprintf(stdout, "\r[audioProcessCallbackConsumer] (%6u Frames, P/C -> %7u/%7u) Peak: [%.*s%*s] %3d%%\n", 
-        //     framesToRead, g_ctx.m_produced.load(), g_ctx.m_consumed.load(),
-        //     scaled, "########################################", 
-        //     barWidth - scaled, "", 
-        //     (int)(maxAmp * 100));
-
-        fprintf(stdout, "Peak: %3d%%\n", (int)(maxAmp * 100));
-        // fflush(stdout);
-        return;
-    };
-
 
     while(!g_ctx.m_exit) 
     {
@@ -243,6 +216,9 @@ void audioProcessCallbackConsumer()
         g_ctx.m_audioDataReady = false; /* Let producer continue */
         lock.unlock();
 
+        if(g_ctx.m_exit.load()) { /* The audio data may be ready, but we might need to exit early */
+            break;
+        }
 
         framesAvailable = ma_pcm_rb_available_read(g_ctx.m_audioMan.m_ringBuffer);
         while(framesAvailable) {
@@ -289,6 +265,38 @@ void audioProcessCallbackConsumer()
 }
 
 
+/*
+    Sample lambda to detect voice activity:
+
+    static const auto skf_detectVolume = [&framesToRead, &pReadBuffer]() {
+    if(!framesToRead || pReadBuffer == nullptr) {
+        return;
+    }
+
+    float* pSamples = (float*)pReadBuffer;
+    float maxAmp = 0.0f;
+    // Find the loudest sample in this chunk
+    for (ma_uint32 i = 0; i < framesToRead; ++i) {
+        maxAmp = std::max(std::abs(pSamples[i]), maxAmp);
+    }
+    
+
+    // Print a simple VU meter: [#######       ]
+    // int barWidth = 40;
+    // int scaled = (int)(maxAmp * barWidth);
+    // fprintf(stdout, "\r[audioProcessCallbackConsumer] (%6u Frames, P/C -> %7u/%7u) Peak: [%.*s%*s] %3d%%\n", 
+    //     framesToRead, g_ctx.m_produced.load(), g_ctx.m_consumed.load(),
+    //     scaled, "########################################", 
+    //     barWidth - scaled, "", 
+    //     (int)(maxAmp * 100));
+
+    fprintf(stdout, "Peak: %3d%%\n", (int)(maxAmp * 100));
+    // fflush(stdout);
+    return;
+};
+*/
+
+
 void audioInferenceWorker()
 {
     bool success = 0;
@@ -300,6 +308,10 @@ void audioInferenceWorker()
         g_ctx.m_inferenceCV.wait(lock, [](){
             return g_ctx.m_exit.load() || g_ctx.m_inferenceBufReady.load();
         });
+        if(g_ctx.m_exit.load()) {
+            break;
+        }
+
 
         success = whisper_full(
             g_ctx.m_llmContextHandle, 
@@ -316,6 +328,8 @@ void audioInferenceWorker()
                 fprintf(stdout, "Transcription [%d]: %s\n", i, text);
             }
         }
+
+        g_ctx.inferSliceBuf.clear();
         
         g_ctx.m_inferenceBufReady = false; /* Free audio-consumer thread to give us more data */
         lock.unlock();
