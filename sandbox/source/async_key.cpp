@@ -1,14 +1,104 @@
-// #include "sandbox/async_input.hpp"
+#include <util2/C/platform.h>
 #include <util2/C/debugbreak.h>
-#include <windows.h>
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
 #include <thread>
 #include <queue>
+#if defined(UTIL2_OS_WINDOWS)
+#   define WIN32_LEAN_AND_MEAN
+#   include <Windows.h>
+#   undef WIN32_LEAN_AND_MEAN
+#elif defined(UTIL2_OS_LINUX)
+#   include <regex>
+#   include <string>
+#   include <fstream>
+#   include <linux/input.h>
+#   include <fcntl.h>
+#   include <unistd.h>
+#endif
 
 
-inline BOOL GetErrorMessage(DWORD dwErrorCode, LPTSTR pBuffer, DWORD cchBufferLength)
+/* Type Definitions/Function Definitions */
+#if defined(UTIL2_OS_WINDOWS)
+
+typedef ThreadID UINTN;
+
+struct KeyMessage {
+    UINT16 m_wParam;
+    DWORD  m_virtualKey;
+    UINT8  m_padding[2];
+};
+
+typedef HookHandle HHOOK;
+
+
+BOOL GetErrorMessage(DWORD dwErrorCode, LPTSTR pBuffer, DWORD cchBufferLength);
+void PrintLastError(const char* format, ...);
+
+LRESULT CALLBACK KeyboardCallback(int nCode, WPARAM wParam, LPARAM lParam);
+
+void HookingProducerThread();
+void ConsumerThread();
+
+#elif defined(UTIL2_OS_LINUX)
+
+typedef uint32_t ThreadID;
+
+struct KeyMessage {
+    uint16_t m_pressType;
+    uint16_t m_keyCode;
+    uint8_t  m_padding[4];
+};
+
+
+bool findDeviceProcKeyboardPath(std::string& out);
+void HookingProducerThread();
+void ConsumerThread();
+
+#endif
+
+
+
+/* Global Data */
+#if defined(UTIL2_OS_WINDOWS)
+HHOOK g_keyHook = nullptr;
+#elif defined(UTIL2_OS_LINUX)
+#endif
+std::queue<KeyMessage>  g_keyQueue;
+std::mutex              g_processInputMtx;
+std::atomic<bool>       gb_exit       = false;
+std::condition_variable gcv_signal;
+std::atomic<ThreadID>   g_producerID{0xFFFF};
+std::atomic<ThreadID>   g_consumerID{0xFFFF};
+
+
+int main()
+{
+    std::thread listener = std::thread{ HookingProducerThread };
+    std::thread consumer = std::thread{ ConsumerThread };
+
+
+#if defined(UTIL2_OS_WINDOWS)
+    consumer.join();
+    PostThreadMessage(g_producerID.load(), WM_QUIT, 0, 0);
+    listener.join();
+#elif defined(UTIL2_OS_LINUX)
+    consumer.join();
+    listener.join();
+#endif
+    return 0;
+}
+
+
+
+
+
+
+#if defined(UTIL2_OS_WINDOWS)
+
+
+BOOL GetErrorMessage(DWORD dwErrorCode, LPTSTR pBuffer, DWORD cchBufferLength)
 {
     if (cchBufferLength == 0) {
         return FALSE;
@@ -26,7 +116,7 @@ inline BOOL GetErrorMessage(DWORD dwErrorCode, LPTSTR pBuffer, DWORD cchBufferLe
 }
 
 
-inline void PrintLastError(const char* format, ...) {
+void PrintLastError(const char* format, ...) {
     va_list arg_list;
     va_start(arg_list, format);
     vfprintf(stderr, format, arg_list);
@@ -43,22 +133,6 @@ inline void PrintLastError(const char* format, ...) {
     );
     return;
 }
-
-
-struct KeyMessage {
-    UINT16 m_wParam;
-    DWORD  m_virtualKey;
-};
-
-
-HHOOK g_keyHook = nullptr;
-std::queue<KeyMessage>  g_keyQueue;
-std::mutex              g_processInputMtx;
-std::atomic<bool>       gb_exit       = false;
-std::condition_variable gcv_signal;
-std::atomic<UINT>       g_producerID{0xFFFF};
-std::atomic<UINT>       g_consumerID{0xFFFF};
-
 
 
 LRESULT CALLBACK KeyboardCallback(int nCode, WPARAM wParam, LPARAM lParam) {
@@ -144,14 +218,119 @@ void ConsumerThread()
 }
 
 
+#elif defined(UTIL2_OS_LINUX)
 
-int main()
-{
-    std::thread listener = std::thread{ HookingProducerThread };
-    std::thread consumer = std::thread{ ConsumerThread };
 
-    consumer.join();
-    PostThreadMessage(g_producerID.load(), WM_QUIT, 0, 0);
-    listener.join();
-    return 0;
+bool findDeviceProcKeyboardPath(std::string& out) {
+    std::ifstream file;
+    std::string line, handlers, path;
+    bool isKeyboard = false;
+
+
+    file.open("/proc/bus/input/devices");
+    if(!file.is_open()) {
+        perror("\
+    Error Opening File 'proc/bus/input/devices' - make sure to run with sudo, \
+    OR set the correct user permissions for this executable\n"
+        );
+        return false;
+    }
+
+
+    while (std::getline(file, line)) {        
+        isKeyboard = (line.find("EV=120013") != std::string::npos) ? true : isKeyboard;
+        if (line.find("Handlers=") != std::string::npos) {
+            handlers = line;
+        }
+        
+        // At the end of a device block (empty line)
+        if (line.empty()) {
+            if (isKeyboard) {
+                std::regex re("event[0-9]+");
+                std::smatch match;
+                if (std::regex_search(handlers, match, re)) {
+                    out = "/dev/input/" + match.str();
+                    return true;
+                }
+            }
+            isKeyboard = false;
+        }
+    }
+    return false;
 }
+
+
+void HookingProducerThread() {
+    constexpr auto onErrorBytesRead = (ssize_t)-1;
+    std::string kKeyboardDevicePath;
+    int fd = -1;
+
+    if(!findDeviceProcKeyboardPath(kKeyboardDevicePath)) {
+        perror("Couldn't find the keyboard event-page\n");
+        gb_exit = true;
+        gcv_signal.notify_one();
+    }
+    fd = open(kKeyboardDevicePath.c_str(), O_RDONLY);
+    if (fd == -1) {
+        perror("Cannot open input device");
+        gb_exit = true;
+        gcv_signal.notify_one();
+    }
+
+
+    struct input_event ev;
+    ssize_t bytesRead = 0;
+    while (!gb_exit) {
+        bytesRead = read(fd, &ev, sizeof(ev));
+        
+        if (bytesRead == onErrorBytesRead) {
+            break;
+        }
+
+        // EV_KEY is a keyboard event, value 1 is 'pressed'
+        if (ev.type == EV_KEY && ev.value == 1) {
+            fprintf(stdout, "\nKeyboard pressed with key %u\n", ev.code);            
+            {
+                std::lock_guard<std::mutex> lock(g_processInputMtx);
+                g_keyQueue.push(KeyMessage{ev.value == 1, ev.code, {0}});
+            }
+            gcv_signal.notify_one();
+        }
+    }
+
+
+    fprintf(bytesRead == onErrorBytesRead ? stderr : stdout, "Exiting HookingProducerThread\n");
+    if(fd != -1) { close(fd); }
+    return;
+}
+
+
+void ConsumerThread() {
+    KeyMessage km;
+    while (!gb_exit) {
+        std::unique_lock<std::mutex> lock(g_processInputMtx);
+        gcv_signal.wait(lock, []() -> bool {
+            return !g_keyQueue.empty() || gb_exit.load() == true;
+        });
+
+        if(gb_exit.load() && g_keyQueue.empty()) {
+            break;
+        }
+    
+
+        km = g_keyQueue.front();
+        g_keyQueue.pop();
+
+        lock.unlock();
+
+        printf("Got Input From Message Queue -> %u, %u\n", km.m_pressType, km.m_keyCode);
+        if(km.m_keyCode == KEY_ESC) {
+            gb_exit = true;
+        }
+    }
+
+    fprintf(stdout, "Exiting ConsumerThread\n");
+}
+
+
+#endif /* Platorm specific code */
