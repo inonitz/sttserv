@@ -1,5 +1,5 @@
 #include <util2/C/platform.h>
-#include <util2/C/debugbreak.h>
+#include <cstdint>
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
@@ -22,7 +22,7 @@
 /* Type Definitions/Function Definitions */
 #if defined(UTIL2_OS_WINDOWS)
 
-typedef ThreadID UINTN;
+typedef DWORD ThreadID;
 
 struct KeyMessage {
     UINT16 m_wParam;
@@ -30,7 +30,7 @@ struct KeyMessage {
     UINT8  m_padding[2];
 };
 
-typedef HookHandle HHOOK;
+typedef HHOOK HookHandle;
 
 
 BOOL GetErrorMessage(DWORD dwErrorCode, LPTSTR pBuffer, DWORD cchBufferLength);
@@ -81,6 +81,7 @@ int main()
 
 #if defined(UTIL2_OS_WINDOWS)
     consumer.join();
+    /* If not for this message, the producer thread will not stop waiting for new key inputs. */
     PostThreadMessage(g_producerID.load(), WM_QUIT, 0, 0);
     listener.join();
 #elif defined(UTIL2_OS_LINUX)
@@ -167,9 +168,7 @@ void HookingProducerThread() {
     g_producerID = GetCurrentThreadId();
 
 
-    
-
-    printf("Listening for messages on thread %u\n", g_producerID.load());
+    printf("Listening for messages on thread %u\n", __scast(std::uint32_t, g_producerID.load()));
     MSG msg;
     while (GetMessage(&msg, NULL, 0, 0)) {
         TranslateMessage(&msg);
@@ -189,7 +188,7 @@ void HookingProducerThread() {
 void ConsumerThread()
 {
     g_consumerID = GetCurrentThreadId();
-    printf("Consuming Input on thread %u!\n", g_consumerID.load());
+    printf("Consuming Input on thread %u!\n", __scast(std::uint32_t, g_consumerID.load()));
 
 
     KeyMessage km;
