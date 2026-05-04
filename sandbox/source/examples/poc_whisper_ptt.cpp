@@ -1,17 +1,9 @@
 #include <filesystem>
-#include <thread>
-#include <atomic>
-#include <cassert>
 #include <chrono>
-#include <condition_variable>
-#include <mutex>
-#include <vector>
-
-#include <util2/C/macro.h>
-
 #include <whisper.h>
 #include "sandbox/whisper_init.hpp"
 #include "sandbox/audio.hpp"
+#include "sandbox/async_key.hpp"
 
 
 struct ProgramContext 
@@ -24,7 +16,15 @@ struct ProgramContext
 
     std::thread       m_readThread;
     std::thread       m_processingThread;
+    
+    /* 
+        Keylistener will set the exit signal to true given a certain key 
+        The main thread will be sleeping until then.
+    */
+    signalMtx         m_exitLock;
     std::atomic<bool> m_exit = false;
+    signalCV          m_exitSignal;
+
     /* Transactions between the Producer/Consumer threads */
     std::atomic<bool>        m_audioDataReady = false;
     signalCV                 m_audioCV;
@@ -34,6 +34,9 @@ struct ProgramContext
     signalCV                 m_inferenceCV;
     signalMtx                m_inferenceLock;
 
+    /* will be controlled by the keylistener */
+    std::atomic<bool>        m_startStopFlag = false;
+
     /* Counters for each thread to see if there is any disparity between capturing/processing */
     std::atomic<uint32_t> m_produced  = 0;
     std::atomic<uint32_t> m_consumed  = 0;
@@ -41,8 +44,11 @@ struct ProgramContext
 
 
     AudioManager      m_audioMan;
+    uint32_t          m_inferenceBufferSize;
     std::vector<f32>  m_inferenceBuf;
-    std::vector<f32>  inferSliceBuf;
+    std::vector<f32>  m_inferSliceBuf;
+
+    AsyncKeyHook      m_keyListener;
 
     WhisperFullContextParameters m_llmFullParams;
     WhisperContextParameters     m_llmInitialContextParameters;
@@ -91,7 +97,20 @@ int main(int argc, char* argv[])
     g_ctx.m_llmFullParams.print_progress = false;
     g_ctx.m_llmFullParams.language       = commandLineArguments.m_lang.c_str();
 
+    // Initialize Async Keylog Second
+    g_ctx.m_keyListener.create();
+    g_ctx.m_keyListener.bindKey(KeyCode::A, [](KeyCode key) {
+        g_ctx.m_startStopFlag = !g_ctx.m_startStopFlag;
+        return;
+    });
+    g_ctx.m_keyListener.bindKey(KeyCode::Escape, [](KeyCode key) {
+        g_ctx.m_exit = true;
+        g_ctx.m_exitSignal.notify_all();
+        return;
+    });
 
+
+    // Initialize Audio manager Lastly
     status = g_ctx.m_audioMan.create(
         ProgramContext::kChannelCount, 
         ProgramContext::kDeviceSampleRate,
@@ -105,9 +124,10 @@ int main(int argc, char* argv[])
     }
 
 
-
-    g_ctx.m_inferenceBuf.reserve(10 * ProgramContext::kDeviceSampleRate); /* Reserve 10 seconds of data */
-    g_ctx.inferSliceBuf.reserve(10 * ProgramContext::kDeviceSampleRate);
+    /* Reserve 10 seconds of data */
+    g_ctx.m_inferenceBufferSize = 10 * ProgramContext::kDeviceSampleRate;
+    g_ctx.m_inferenceBuf.reserve(3 * g_ctx.m_inferenceBufferSize / 2);
+    g_ctx.m_inferSliceBuf.reserve(3 * g_ctx.m_inferenceBufferSize / 2);
 
     // read thread should init first s.t it waits for data.
     g_ctx.m_readThread       = std::thread(audioProcessCallbackConsumer);
@@ -120,9 +140,20 @@ int main(int argc, char* argv[])
 	}
 
     
-    fprintf(stdout, "Capturing Audio... Press any key to stop\n");
-    std::fgets(inputBuf, 100, stdin);
-    fprintf(stdout, "Finished");
+    // fprintf(stdout, "Capturing Audio... Press any key to stop\n");
+    // std::fgets(inputBuf, 100, stdin);
+    // fprintf(stdout, "Finished");
+    fprintf(stdout, "\
+Audio Capture is now available...\n\
+    Press the    'A'   Key to Start/Stop\n\
+    Press the 'Escape' Key to Stop the program"
+    );
+
+    std::unique_lock<std::mutex> _(g_ctx.m_exitLock);
+    g_ctx.m_exitSignal.wait(_, []() {
+        return g_ctx.m_exit == true;
+    });
+    _.unlock();
 
 
     status = g_ctx.m_audioMan.stop();
@@ -142,7 +173,9 @@ int main(int argc, char* argv[])
 
 
 cleanup:
-    g_ctx.m_audioMan.destroy();
+    g_ctx.m_audioMan.destroy(); /* Handles input stream. should be closed first. */
+    g_ctx.m_keyListener.destroy();
+    destroy_context(g_ctx.m_llmContextHandle);
     return status;
 }
 
@@ -226,33 +259,47 @@ void audioProcessCallbackConsumer()
             framesToRead = framesAvailable;
             ma_pcm_rb_acquire_read(g_ctx.m_audioMan.m_ringBuffer, &framesToRead, &pReadBuffer);
 
+            /* If there is no need for inference we shouldn't be reading in the first. */
+            if(g_ctx.m_startStopFlag) {
 
-            // 2. Write the new data to the inference buffer
-            g_ctx.m_inferenceBuf.insert(
-                g_ctx.m_inferenceBuf.end(), 
-                reinterpret_cast<f32*>(pReadBuffer),
-                reinterpret_cast<f32*>(pReadBuffer) + framesToRead
-            );
+                // 2. Write the new data to the inference buffer
+                g_ctx.m_inferenceBuf.insert(
+                    g_ctx.m_inferenceBuf.end(), 
+                    reinterpret_cast<f32*>(pReadBuffer),
+                    reinterpret_cast<f32*>(pReadBuffer) + framesToRead
+                );
 
-            // 3. We have enough data? notify the Worker Thread so it can start working
-            if(g_ctx.m_inferenceBuf.size() >= 3 * ProgramContext::kDeviceSampleRate) 
-            {
+                // 3. We have enough data? notify the Worker Thread so it can start working
+                if(g_ctx.m_inferenceBuf.size() >= g_ctx.m_inferenceBufferSize) 
+                {
+                    std::lock_guard<std::mutex> lock(g_ctx.m_inferenceLock);
+                    if(!g_ctx.m_inferenceBufReady) { /* We can write to the buffer(?) */
+                        printf("Swapping buffers\n");
+
+                        std::swap(g_ctx.m_inferSliceBuf, g_ctx.m_inferenceBuf);
+
+                        g_ctx.m_inferenceBuf.clear();
+
+                        g_ctx.m_inferenceBufReady = true;
+                        g_ctx.m_inferenceCV.notify_one();
+                    
+                    } else {
+                        printf("Writing to inference buffer\n");
+                    }
+                }
+            } else { 
+                /* 
+                    We Either Just Stopped recording, or we never entered in the first place. 
+                    the inferenceBuf size check verifies that condition.
+                */
+                /* Getting rid of the else keeps the PTT, but is still in N-second intervals. */
                 std::lock_guard<std::mutex> lock(g_ctx.m_inferenceLock);
-                if(!g_ctx.m_inferenceBufReady) { /* We can write to the buffer(?) */
-                    printf("Swapping buffers\n");
-
-                    std::swap(g_ctx.inferSliceBuf, g_ctx.m_inferenceBuf);
-
-                    g_ctx.m_inferenceBuf.clear();
-
-                    g_ctx.m_inferenceBufReady = true;
+                g_ctx.m_inferenceBufReady = g_ctx.m_inferenceBuf.size() > 0;
+                if(g_ctx.m_inferenceBufReady) {
                     g_ctx.m_inferenceCV.notify_one();
-                
-                } else {
-                    printf("Writing to inference buffer\n");
-
                 }
             }
+
 
             // 3. Commit the read so the producer can reuse that space
             ma_pcm_rb_commit_read(g_ctx.m_audioMan.m_ringBuffer, framesToRead);
@@ -316,8 +363,8 @@ void audioInferenceWorker()
         success = whisper_full(
             g_ctx.m_llmContextHandle, 
             g_ctx.m_llmFullParams, 
-            g_ctx.inferSliceBuf.data(), 
-            g_ctx.inferSliceBuf.size()
+            g_ctx.m_inferSliceBuf.data(), 
+            g_ctx.m_inferSliceBuf.size()
         );
         if(success != 0) {
             fprintf(stderr, "Failed to process audio\n");
@@ -329,7 +376,7 @@ void audioInferenceWorker()
             }
         }
 
-        g_ctx.inferSliceBuf.clear();
+        g_ctx.m_inferSliceBuf.clear();
         
         g_ctx.m_inferenceBufReady = false; /* Free audio-consumer thread to give us more data */
         lock.unlock();

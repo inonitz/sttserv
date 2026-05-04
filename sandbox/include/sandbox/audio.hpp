@@ -1,8 +1,8 @@
 #ifndef __MINIAUDIO_INIT_DEFINITION_HEADER__
 #define __MINIAUDIO_INIT_DEFINITION_HEADER__
-#include <miniaudio.h>
 #include <util2/C/macro.h>
 #include <util2/C/base_type.h>
+#include <miniaudio.h>
 
 
 struct AudioManager

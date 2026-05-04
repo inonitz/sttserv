@@ -99,3 +99,11 @@ bool init_context(
 
     return *outContext != nullptr;
 }
+
+
+void destroy_context(
+    WhisperContextHandle outContext
+) {
+    whisper_free(outContext);
+    return;
+}

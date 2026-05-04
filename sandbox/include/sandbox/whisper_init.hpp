@@ -58,6 +58,10 @@ bool init_context(
 );
 
 
+void destroy_context(
+    WhisperContextHandle outContext
+);
+
 
 
 #endif /* __WHISPER_CPP_INIT_DEFINITION_HEADER__ */

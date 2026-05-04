@@ -7,10 +7,11 @@ set(SOURCES
     source/audio.cpp
     source/miniaudio_impl.c
     source/whisper_init.cpp
-
+    source/examples/whisper_ptt.cpp
 )
 
 set(HEADERS
+    include/sandbox/async_key.hpp
     include/sandbox/audio.hpp
     include/sandbox/whisper_init.hpp
 )
