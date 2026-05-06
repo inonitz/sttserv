@@ -1,8 +1,14 @@
 # Build & Compile
 git submodule init
 git submodule update --recursive
+
+# windows
 .\build.ps1 -BuildType Debug -LinkType static -Action configure
 .\build.ps1 -BuildType Debug -LinkType static -Action build
-
-
 cd build\debug\static\bin ; .\sttserver_sandbox.exe --model="../../../../dependencies/models/openai/whisper-large-v3-turbo/ggml-model.bin" --fa --step=0 --language=he ; cd ../../../../
+
+# linux
+./build.sh debug static configure
+./build.sh debug static build
+./build.sh debug static sandbox
+sudo ./sttserver_sandbox --model="../../../../dependencies/models/openai/whisper-large-v3-turbo/ggml-model.bin" --fa --step=0 --lang he

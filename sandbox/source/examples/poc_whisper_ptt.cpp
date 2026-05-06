@@ -1,3 +1,4 @@
+#include <cstring>
 #include <filesystem>
 #include <chrono>
 #include <whisper.h>
@@ -73,10 +74,11 @@ static ProgramContext g_ctx;
 
 int main(int argc, char* argv[]) 
 {
-    printf("CWD IS %ls\n", std::filesystem::current_path().c_str());
+    printf("CWD IS %s\n", std::filesystem::current_path().c_str());
     bool        status = true;
     static char inputBuf[100];
     WhisperParameters commandLineArguments;
+    std::unique_lock<std::mutex>* lock_ptr = nullptr;
 
     /* Initialize Whisper First. */
     parse_args(argc, argv, commandLineArguments);
@@ -149,12 +151,12 @@ Audio Capture is now available...\n\
     Press the 'Escape' Key to Stop the program"
     );
 
-    std::unique_lock<std::mutex> _(g_ctx.m_exitLock);
-    g_ctx.m_exitSignal.wait(_, []() {
+    lock_ptr = new std::unique_lock<std::mutex>(g_ctx.m_exitLock);
+    g_ctx.m_exitSignal.wait(*lock_ptr, []() {
         return g_ctx.m_exit == true;
     });
-    _.unlock();
-
+    lock_ptr->unlock();
+    delete lock_ptr;
 
     status = g_ctx.m_audioMan.stop();
 	if (!status) {

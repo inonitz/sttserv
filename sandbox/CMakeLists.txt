@@ -7,7 +7,7 @@ set(SOURCES
     source/audio.cpp
     source/miniaudio_impl.c
     source/whisper_init.cpp
-    source/examples/whisper_ptt.cpp
+    source/examples/poc_whisper_ptt.cpp
 )
 
 set(HEADERS
