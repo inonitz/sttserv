@@ -53,10 +53,10 @@
             "name": "LLDB (Linux-x86_64-Static-Debug) Remote",
             "program": "${workspaceFolder}/build/debug/static/bin/sttserver_sandbox",
             "args": [
-                "--model=dependencies/models/openai/whisper-large-v3-turbo/ggml-model.bin",
+                "--model=dependencies/models/ivrit_ai/whisper-large-v3-turbo/ggml-model.bin",
                 "--fa",
-                "--language=he",
                 "--step=0",
+                "--lang=he",
                 "--threads=1"
             ],
             "cwd": "${workspaceFolder}",

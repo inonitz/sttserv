@@ -4,7 +4,7 @@
 // key_name.hpp or append to key_codes.hpp
 
 
-[[nodiscard]] inline const char* keyCodeToString(KeyCode key) noexcept {
+const char* keyCodeToString(KeyCode key) noexcept {
     switch (key) {
         // ── Common ────────────────────────────
         case KeyCode::Escape:     return "Escape";

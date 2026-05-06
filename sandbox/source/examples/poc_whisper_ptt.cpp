@@ -101,6 +101,10 @@ int main(int argc, char* argv[])
 
     // Initialize Async Keylog Second
     g_ctx.m_keyListener.create();
+    g_ctx.m_keyListener.bindKey(KeyCode::Any, [](KeyCode key) {
+        fprintf(stdout, "Pressed Key %s'n", keyCodeToString(key));
+        return;
+    });
     g_ctx.m_keyListener.bindKey(KeyCode::A, [](KeyCode key) {
         g_ctx.m_startStopFlag = !g_ctx.m_startStopFlag;
         return;

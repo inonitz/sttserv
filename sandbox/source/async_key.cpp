@@ -1,8 +1,6 @@
 #include "sandbox/async_key.hpp"
-
 #include <cstdarg>
 #include <cstdio>
-
 #if defined(UTIL2_OS_LINUX)
 #	include <regex>
 #	include <fstream>
@@ -82,17 +80,26 @@ void AsyncKeyHook::unbindKey(KeyCode key) {
 }
 
 void AsyncKeyHook::dispatch(KeyCode key) {
-	Callback cb;
+	Callback cb    = nullptr;
+	Callback anycb = nullptr;
 	{
 		std::lock_guard<std::mutex> lock(m_bindingsMtx);
-		auto                        it = m_bindings.find(key);
-		if (it == m_bindings.end())
+		auto                        it    = m_bindings.find(key);
+		auto 						anyit = m_bindings.find(KeyCode::Any);
+		if (it == m_bindings.end() && anyit == m_bindings.end()) {
 			return;
-		cb = it->second; // copy, so we don't hold the mutex during the call
+		}
+
+		// copy, so we don't hold the mutex during the call
+		cb 	  = (it != m_bindings.end())    ? it->second    : nullptr;
+		anycb = (anyit != m_bindings.end()) ? anyit->second : nullptr;
 	}
 	if (cb) {
 		cb(key);
     }
+	if(anycb) {
+		anycb(key);
+	}
     return;
 }
 

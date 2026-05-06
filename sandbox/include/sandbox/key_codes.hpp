@@ -91,7 +91,8 @@ enum class KeyCode : std::uint16_t {
     MediaPlayPause= VK_MEDIA_PLAY_PAUSE,
 
     // reserved
-    Unknown       = 0xFEFE
+    Unknown       = 0xFEFE,
+    Any            = 0xFEFD
 
 #elif defined(UTIL2_OS_LINUX)
     Escape        = KEY_ESC,
@@ -188,15 +189,16 @@ enum class KeyCode : std::uint16_t {
     MediaStop      = KEY_STOPCD,
     MediaPlayPause = KEY_PLAYPAUSE,
 
-    Unknown        = 0xFEFE
+    Unknown        = 0xFEFE,
+    Any            = 0xFEFD
 #endif
 };
 
 
-constexpr std::uint16_t key_code_raw(KeyCode k) noexcept {
+constexpr std::uint16_t keyCodeToInteger(KeyCode k) noexcept {
     return static_cast<std::uint16_t>(k);
 }
 
-[[nodiscard]] const char* keyCodeToString(KeyCode k) noexcept;
+const char* keyCodeToString(KeyCode key) noexcept;
 
 #endif /* __CROSS_PLATFORM_KEYCODE_TYPE_DEFINITION_HEADER__ */
