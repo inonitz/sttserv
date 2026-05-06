@@ -22,7 +22,7 @@ bool parse_args(int argc, char** argv, WhisperParameters& outParams) {
             ("bs,beam-size",      "beam size for beam search",                       cxxopts::value<i32>(outParams.beam_size))
             ("vth,vad-thold",     "voice activity detection threshold",              cxxopts::value<f32>(outParams.m_vadThreshold))
             ("fth,freq-thold",    "high-pass frequency cutoff",                      cxxopts::value<f32>(outParams.m_freqThreshold))
-            // ("tr,translate",      "translate from source language to english",       cxxopts::value<bool>(params.mb_translate))
+            ("tr,translate",      "translate from source language to english",       cxxopts::value<bool>(outParams.mb_translateEnglish)->implicit_value("false"))
             ("nf,no-fallback",    "do not use temperature fallback while decoding",  cxxopts::value<bool>(outParams.mb_fallback)->implicit_value("false"))
             ("ps,print-special",  "print special tokens",                            cxxopts::value<bool>(outParams.mb_printSpecial))
             ("kc,keep-context",   "keep context between audio chunks",               cxxopts::value<bool>(outParams.mb_context))

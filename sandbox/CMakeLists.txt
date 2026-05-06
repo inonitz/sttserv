@@ -33,6 +33,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     whisper
     UTIL2::util2
     cxxopts::cxxopts
+    # WORKSPACE_CONFIG::ProjectDefaultConfig
 )
 
 

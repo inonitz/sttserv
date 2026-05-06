@@ -124,6 +124,10 @@ BOOL AsyncKeyHook::getErrorMessage(DWORD dwErrorCode, LPTSTR pBuffer, DWORD cchB
 	return cchMsg > 0;
 }
 
+
+// #if defined(UTIL2_COMPILER_CLANG) || defined(UTIL2_COMPILER_GCC) || defined(__MINGW64__)
+// __attribute__((format(printf, 1, 2)))
+// #endif
 void AsyncKeyHook::printLastError(const char* format, ...) {
 	va_list arg_list;
 	va_start(arg_list, format);

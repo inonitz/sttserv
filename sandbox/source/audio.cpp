@@ -22,7 +22,13 @@ bool AudioManager::create(
 	ma_result        status = MA_SUCCESS;
 
 
+    /* Member init */
+    mk_ChannelCount                = kChannelCount;
+    mk_DeviceSampleRate            = kDeviceSampleRate;
+    mk_CustomUserControlledPointer = custom_user_defined_pointer;
+    mk_AudioProcessingUserFunction = process_audio_chunk_functor;
 
+    /* mini-audio related init */
     constexpr auto kSizeInBytes = sizeof(*m_ctx) + sizeof(*m_ringBuffer) + sizeof(*m_audioDev);
     m_underlyingMem = __rcast(byte*, util2_aligned_malloc(kSizeInBytes, CACHE_LINE_BYTES));
     status = m_underlyingMem == nullptr ? MA_ERROR : MA_SUCCESS;
@@ -36,7 +42,7 @@ bool AudioManager::create(
     m_audioDev   = __rcast(ma_device*, (m_underlyingMem + sizeof(*m_ctx) + sizeof(*m_ringBuffer)));
 
 
-    /* Mini-Audio Init - Circular SPSC Ringbuffer, Custom Context, Duplex, */
+    /* Init Circular SPSC Ringbuffer, Custom Context, Duplex, */
     status = ma_pcm_rb_init(
         ma_format_f32, 
         kChannelCount, 
@@ -55,7 +61,7 @@ bool AudioManager::create(
     const ma_uint32 backendCount = 2;
 #else
     const ma_backend* pBackendHandle = NULL;
-    const ma_uint32 backendCount = 0;
+    const ma_uint32   backendCount = 0;
 #endif
 
     status = ma_context_init(pBackendHandle, backendCount, NULL, m_ctx);
@@ -74,7 +80,7 @@ bool AudioManager::create(
         &captureDeviceCount
     );
     if(status != MA_SUCCESS) {
-        fprintf(stderr, "Could not iterate over available capture devices\n");
+        fprintf(stderr, "Could not iterate over available capture/playback devices\n");
         ma_context_uninit(m_ctx);
         ma_pcm_rb_uninit(m_ringBuffer);
 		return false;
@@ -102,15 +108,18 @@ bool AudioManager::create(
     fprintf(stdout, "----------------------------------------\n");
 
 
+    m_captureDeviceIdx  = static_cast<uint8_t>(cpDeviceIdx);
+    m_playbackDeviceIdx = static_cast<uint8_t>(pbDeviceIdx);
+
     // Audio Configuration
 	device_config                    = ma_device_config_init(ma_device_type_duplex);
 	device_config.sampleRate         = kDeviceSampleRate;
-    device_config.capture.pDeviceID = &pCaptureDeviceInfos[cpDeviceIdx].id;
+    device_config.capture.pDeviceID = &pCaptureDeviceInfos[m_captureDeviceIdx].id;
 	device_config.capture.format     = ma_format_f32;
 	device_config.capture.channels   = kChannelCount;
 	device_config.capture.shareMode  = ma_share_mode_shared;
 
-    device_config.playback.pDeviceID = &pPlaybackDeviceInfos[pbDeviceIdx].id;
+    device_config.playback.pDeviceID = &pPlaybackDeviceInfos[m_playbackDeviceIdx].id;
 	device_config.playback.format     = ma_format_f32;
 	device_config.playback.channels   = kChannelCount;
 	device_config.playback.shareMode  = ma_share_mode_shared;
@@ -146,3 +155,203 @@ void AudioManager::destroy()
     m_underlyingMem = nullptr;
     return;
 }
+
+
+
+
+[[nodiscard]] bool AudioManager::initializeMemory()
+{
+    ma_result status = MA_SUCCESS;
+    constexpr auto kSizeInBytes = sizeof(*m_ctx) + sizeof(*m_ringBuffer) + sizeof(*m_audioDev);
+
+
+    m_underlyingMem = __rcast(byte*, util2_aligned_malloc(kSizeInBytes, CACHE_LINE_BYTES));
+    status = (m_underlyingMem == nullptr) ? MA_ERROR : MA_SUCCESS;
+	if (status != MA_SUCCESS) {
+        fprintf(stderr, "Could not allocate memory for Audio manager\n");
+        return false;
+	}
+
+    /* Assign Memory regions */
+    m_ctx        = __rcast(ma_context*, (m_underlyingMem + 0));
+    m_ringBuffer = __rcast(ma_pcm_rb*, (m_underlyingMem + sizeof(*m_ctx)));
+    m_audioDev   = __rcast(ma_device*, (m_underlyingMem + sizeof(*m_ctx) + sizeof(*m_ringBuffer)));
+    return true;
+}
+
+
+[[nodiscard]] bool AudioManager::initializeRingBuffer(
+    const u32 kChannelCount,
+    const u32 kDeviceSampleRate,
+    const u32 kRingBufferSizeInSeconds
+) noexcept
+{
+    const u32 kBufferRingSize = kDeviceSampleRate * kRingBufferSizeInSeconds;
+
+    ma_result status = ma_pcm_rb_init(
+        ma_format_f32, 
+        kChannelCount, 
+        kBufferRingSize, 
+        NULL, 
+        NULL, 
+        m_ringBuffer
+    );
+	if (status != MA_SUCCESS) {
+        fprintf(stderr, "Could not create ring buffer\n");
+        return false;
+	}
+
+    mk_ChannelCount     = kChannelCount;
+    mk_DeviceSampleRate = kDeviceSampleRate;
+    return true;
+}
+
+
+[[nodiscard]] bool AudioManager::initializeContext() noexcept
+{
+#if defined(UTIL2_OS_LINUX)
+    ma_backend backends[] = { ma_backend_pulseaudio, ma_backend_alsa };
+    const ma_backend* pBackendHandle = backends;
+    const ma_uint32 backendCount = 2;
+#else
+    const ma_backend* pBackendHandle = NULL;
+    const ma_uint32   backendCount = 0;
+#endif
+
+    ma_result status = ma_context_init(pBackendHandle, backendCount, NULL, m_ctx);
+    if (status != MA_SUCCESS) {
+        fprintf(stderr, "Could not create Miniaudio Context\n");
+		return false;
+	}
+	
+
+    return true;
+}
+
+
+[[nodiscard]] bool AudioManager::initializeDeviceList() noexcept
+{
+    ma_device_info*  pCaptureDeviceInfos;
+    ma_device_info*  pPlaybackDeviceInfos;
+    u32              captureDeviceCount;
+    u32              playbackDeviceCount;
+    ma_result        status      = MA_SUCCESS;
+    u32              cpDeviceIdx = 0xFF;
+    u32              pbDeviceIdx = 0xFF;
+    if(m_ctx == nullptr) {
+        return false;
+    }
+
+
+    /* Find Default devices */
+    status = ma_context_get_devices(m_ctx, 
+        &pPlaybackDeviceInfos, 
+        &playbackDeviceCount, 
+        &pCaptureDeviceInfos, 
+        &captureDeviceCount
+    );
+    if(status != MA_SUCCESS) {
+        fprintf(stderr, "Could not iterate over available capture/playback devices\n");
+        ma_context_uninit(m_ctx);
+        ma_pcm_rb_uninit(m_ringBuffer);
+		return false;
+    }
+
+    /* Save the data */
+    m_deviceList.first.assign(pCaptureDeviceInfos, pCaptureDeviceInfos + captureDeviceCount);
+    m_deviceList.second.assign(pPlaybackDeviceInfos, pPlaybackDeviceInfos + playbackDeviceCount);
+
+
+    /* save default devices unless specified later otherwise */
+    fprintf(stdout, "----------------------------------------\nCapture Devices:\n");
+    for (uint32_t i = 0; i < captureDeviceCount; ++i) {
+        fprintf(stdout, "  %u: %s %s\n", 
+            i, 
+            pCaptureDeviceInfos[i].name, 
+            pCaptureDeviceInfos[i].isDefault ? "[DEFAULT]" : ""
+        );
+        cpDeviceIdx = pCaptureDeviceInfos[i].isDefault ? i : cpDeviceIdx;
+    }
+    fprintf(stdout, "----------------------------------------\nPlayback Devices:\n");
+    for (uint32_t i = 0; i < playbackDeviceCount; ++i) {
+        fprintf(stdout, "  %u: %s %s\n", 
+            i, 
+            pPlaybackDeviceInfos[i].name, 
+            pPlaybackDeviceInfos[i].isDefault ? "[DEFAULT]" : ""
+        );
+        pbDeviceIdx = pPlaybackDeviceInfos[i].isDefault ? i : pbDeviceIdx;
+    }
+    fprintf(stdout, "----------------------------------------\n");
+
+
+    /* pick Defaults unless later specified otherwise */
+    m_captureDeviceIdx  = static_cast<uint8_t>(cpDeviceIdx);
+    m_playbackDeviceIdx = static_cast<uint8_t>(pbDeviceIdx);
+    return true;
+}
+
+
+[[nodiscard]] bool AudioManager::initializeAudioDevice(
+    uint8_t                   captureDeviceID,
+    uint8_t                   playbackDeviceID,
+    void*                     custom_user_defined_pointer, 
+    const ma_device_data_proc k_process_audio_chunk_functor
+) noexcept {
+    const u32        kOptimalLatencyBetweenDeviceRequestsInMilliseconds = 10; /* 10ms */
+    const u32        kPeriodSizeInFrames = 
+        mk_DeviceSampleRate * kOptimalLatencyBetweenDeviceRequestsInMilliseconds / 1000;
+	ma_result        status = MA_SUCCESS;
+	ma_device_config device_config;
+
+
+    m_captureDeviceIdx  = (captureDeviceID == 0xFF) ? m_captureDeviceIdx : captureDeviceID;
+    m_playbackDeviceIdx = (playbackDeviceID == 0xFF) ? m_playbackDeviceIdx : playbackDeviceID;
+    /* Error During initialization, indices are invalid/didn't create context */
+    if(m_ctx == nullptr 
+        || mk_ChannelCount == UINT32_MAX
+        || mk_DeviceSampleRate == UINT32_MAX
+        || m_captureDeviceIdx > m_deviceList.first.size() 
+        || m_playbackDeviceIdx > m_deviceList.second.size()
+    ) {
+        return false;
+    }
+
+    /* Member init after proper init */
+    mk_CustomUserControlledPointer = custom_user_defined_pointer;
+    mk_AudioProcessingUserFunction = k_process_audio_chunk_functor;
+
+    // Audio Configuration
+	device_config                    = ma_device_config_init(ma_device_type_duplex);
+	device_config.sampleRate         = mk_DeviceSampleRate;
+    device_config.capture.pDeviceID = &m_deviceList.first[m_captureDeviceIdx].id;
+	device_config.capture.format     = ma_format_f32;
+	device_config.capture.channels   = mk_ChannelCount;
+	device_config.capture.shareMode  = ma_share_mode_shared;
+
+    device_config.playback.pDeviceID = &m_deviceList.second[m_playbackDeviceIdx].id;
+	device_config.playback.format     = ma_format_f32;
+	device_config.playback.channels   = mk_ChannelCount;
+	device_config.playback.shareMode  = ma_share_mode_shared;
+
+	device_config.dataCallback       = mk_AudioProcessingUserFunction;
+	device_config.periodSizeInFrames = kPeriodSizeInFrames;
+    device_config.pUserData          = mk_CustomUserControlledPointer;
+
+
+    // Initialize the audio devices
+	status = ma_device_init(m_ctx, &device_config, m_audioDev);
+	if (status != MA_SUCCESS) {
+        fprintf(stderr, "Could not open the desired capture and/or playback devices\n");
+        ma_context_uninit(m_ctx);
+        ma_pcm_rb_uninit(m_ringBuffer);
+		return false;
+	}
+    fprintf(stdout, "Picked Audio Devices -> \n  Playback: %s\n  Capture: %s\n", 
+        m_deviceList.second[m_playbackDeviceIdx].name,
+        m_deviceList.first[m_captureDeviceIdx].name
+    );
+
+
+    return true;
+}
+

@@ -26,13 +26,14 @@ struct WhisperParameters
     f32 m_vadThreshold  = 0.6f;
     f32 m_freqThreshold = 100.0f;
 
-    bool mb_fallback       = true;
-    bool mb_printSpecial   = false;
-    bool mb_context        = false;
-    bool mb_timestamps     = true;
-    bool mb_tinyDiarize    = false;
-    bool mb_useGPU         = true;
-    bool mb_FlashAttention = true;
+    bool mb_translateEnglish = false;
+    bool mb_fallback         = true;
+    bool mb_printSpecial     = false;
+    bool mb_context          = false;
+    bool mb_timestamps       = true;
+    bool mb_tinyDiarize      = false;
+    bool mb_useGPU           = true;
+    bool mb_FlashAttention   = true;
     bool mkb_useVAD;
 
     std::string m_lang          = "en";

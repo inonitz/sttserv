@@ -1,6 +1,5 @@
 #include <cstring>
 #include <filesystem>
-#include <chrono>
 #include <whisper.h>
 #include "sandbox/whisper_init.hpp"
 #include "sandbox/audio.hpp"
@@ -78,7 +77,10 @@ int main(int argc, char* argv[])
     bool        status = true;
     static char inputBuf[100];
     WhisperParameters commandLineArguments;
+
+    AudioManager::capture_playback_pair availableDevices;
     std::unique_lock<std::mutex>* lock_ptr = nullptr;
+
 
     /* Initialize Whisper First. */
     parse_args(argc, argv, commandLineArguments);
@@ -97,12 +99,17 @@ int main(int argc, char* argv[])
     g_ctx.m_llmFullParams = whisper_full_default_params(whisper_sampling_strategy::WHISPER_SAMPLING_GREEDY);
     g_ctx.m_llmFullParams.n_threads      = commandLineArguments.m_numThreads;
     g_ctx.m_llmFullParams.print_progress = false;
+    fprintf(stdout, "Translation to english enabled? %s\nModel is even multiligunal? %u\n", 
+        commandLineArguments.mb_translateEnglish ? "YES" : "NO",
+        whisper_is_multilingual(g_ctx.m_llmContextHandle)
+    );
+    g_ctx.m_llmFullParams.translate      = commandLineArguments.mb_translateEnglish;
     g_ctx.m_llmFullParams.language       = commandLineArguments.m_lang.c_str();
 
     // Initialize Async Keylog Second
     g_ctx.m_keyListener.create();
     g_ctx.m_keyListener.bindKey(KeyCode::Any, [](KeyCode key) {
-        fprintf(stdout, "Pressed Key %s'n", keyCodeToString(key));
+        fprintf(stdout, "\nPressed Key %s\n", keyCodeToString(key));
         return;
     });
     g_ctx.m_keyListener.bindKey(KeyCode::A, [](KeyCode key) {
@@ -117,11 +124,15 @@ int main(int argc, char* argv[])
 
 
     // Initialize Audio manager Lastly
-    status = g_ctx.m_audioMan.create(
+    // status = g_ctx.m_audioMan.create(
+    //     ProgramContext::kChannelCount, 
+    //     ProgramContext::kDeviceSampleRate,
+    //     &g_ctx,
+    //     audioCaptureCallbackProducer
+    // );
+    status = g_ctx.m_audioMan.createContext(
         ProgramContext::kChannelCount, 
-        ProgramContext::kDeviceSampleRate,
-        &g_ctx,
-        audioCaptureCallbackProducer
+        ProgramContext::kDeviceSampleRate
     );
     if(!status) {
         fprintf(stderr, "Could Not Initialize Audio Manager\n");
@@ -129,7 +140,24 @@ int main(int argc, char* argv[])
         return 1;
     }
 
+    status = g_ctx.m_audioMan.getDeviceList(availableDevices);
+    if(!status) {
+        fprintf(stderr, "Could Not Initialize Audio Managers' Device List\n");
+        goto cleanup;
+        return 1;
+    }
 
+    status = g_ctx.m_audioMan.selectDevicesAndFinalize(
+        &g_ctx, 
+        audioCaptureCallbackProducer
+    );
+    if(!status) {
+        fprintf(stderr, "Could Not Finalize Audio-Device Initialization\n");
+        goto cleanup;
+        return 1;
+    }
+
+    
     /* Reserve 10 seconds of data */
     g_ctx.m_inferenceBufferSize = 10 * ProgramContext::kDeviceSampleRate;
     g_ctx.m_inferenceBuf.reserve(3 * g_ctx.m_inferenceBufferSize / 2);
@@ -213,10 +241,10 @@ void audioCaptureCallbackProducer(
         framesToWrite = framesRemaining;
         void* pWriteBuffer;
 
-        ma_pcm_rb_acquire_write(userCtx->m_audioMan.m_ringBuffer, &framesToWrite, &pWriteBuffer);
+        ma_pcm_rb_acquire_write(userCtx->m_audioMan.ringBufferHandle(), &framesToWrite, &pWriteBuffer);
         if (framesToWrite > 0) {
             std::memcpy(pWriteBuffer, pInputBytePtr, framesToWrite * bytesPerFrame);
-            ma_pcm_rb_commit_write(userCtx->m_audioMan.m_ringBuffer, framesToWrite);
+            ma_pcm_rb_commit_write(userCtx->m_audioMan.ringBufferHandle(), framesToWrite);
 
             { /* Lock guard will go out of scope and release the mutex */
                 std::lock_guard<std::mutex> lock(userCtx->m_audioLock);
@@ -259,11 +287,11 @@ void audioProcessCallbackConsumer()
             break;
         }
 
-        framesAvailable = ma_pcm_rb_available_read(g_ctx.m_audioMan.m_ringBuffer);
+        framesAvailable = ma_pcm_rb_available_read(g_ctx.m_audioMan.ringBufferHandle());
         while(framesAvailable) {
             // 1. Acquire the read pointer
             framesToRead = framesAvailable;
-            ma_pcm_rb_acquire_read(g_ctx.m_audioMan.m_ringBuffer, &framesToRead, &pReadBuffer);
+            ma_pcm_rb_acquire_read(g_ctx.m_audioMan.ringBufferHandle(), &framesToRead, &pReadBuffer);
 
             /* If there is no need for inference we shouldn't be reading in the first. */
             if(g_ctx.m_startStopFlag) {
@@ -302,13 +330,15 @@ void audioProcessCallbackConsumer()
                 std::lock_guard<std::mutex> lock(g_ctx.m_inferenceLock);
                 g_ctx.m_inferenceBufReady = g_ctx.m_inferenceBuf.size() > 0;
                 if(g_ctx.m_inferenceBufReady) {
+                    std::swap(g_ctx.m_inferSliceBuf, g_ctx.m_inferenceBuf);
+                    g_ctx.m_inferenceBuf.clear();
                     g_ctx.m_inferenceCV.notify_one();
                 }
             }
 
 
             // 3. Commit the read so the producer can reuse that space
-            ma_pcm_rb_commit_read(g_ctx.m_audioMan.m_ringBuffer, framesToRead);
+            ma_pcm_rb_commit_read(g_ctx.m_audioMan.ringBufferHandle(), framesToRead);
             framesAvailable -= framesToRead;
             ++g_ctx.m_consumed;
         }
