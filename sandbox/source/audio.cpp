@@ -297,7 +297,7 @@ void AudioManager::destroy()
     void*                     custom_user_defined_pointer, 
     const ma_device_data_proc k_process_audio_chunk_functor
 ) noexcept {
-    const u32        kOptimalLatencyBetweenDeviceRequestsInMilliseconds = 10; /* 10ms */
+    const u32        kOptimalLatencyBetweenDeviceRequestsInMilliseconds = 1; /* 1ms */
     const u32        kPeriodSizeInFrames = 
         mk_DeviceSampleRate * kOptimalLatencyBetweenDeviceRequestsInMilliseconds / 1000;
 	ma_result        status = MA_SUCCESS;

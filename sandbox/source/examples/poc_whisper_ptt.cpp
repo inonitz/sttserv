@@ -114,6 +114,7 @@ int main(int argc, char* argv[])
     });
     g_ctx.m_keyListener.bindKey(KeyCode::A, [](KeyCode key) {
         g_ctx.m_startStopFlag = !g_ctx.m_startStopFlag;
+        fprintf(stdout, "\nAudio Keybind %s\n", g_ctx.m_startStopFlag.load() ? "START" : "STOP ");
         return;
     });
     g_ctx.m_keyListener.bindKey(KeyCode::Escape, [](KeyCode key) {
