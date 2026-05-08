@@ -217,8 +217,10 @@ void AudioManager::destroy()
     const ma_backend* pBackendHandle = NULL;
     const ma_uint32   backendCount = 0;
 #endif
+    ma_context_config contextConfig = ma_context_config_init();
+    contextConfig.threadPriority = ma_thread_priority_realtime;
 
-    ma_result status = ma_context_init(pBackendHandle, backendCount, NULL, m_ctx);
+    ma_result status = ma_context_init(pBackendHandle, backendCount, &contextConfig, m_ctx);
     if (status != MA_SUCCESS) {
         fprintf(stderr, "Could not create Miniaudio Context\n");
 		return false;

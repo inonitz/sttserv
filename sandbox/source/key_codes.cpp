@@ -114,3 +114,37 @@ const char* keyCodeToString(KeyCode key) noexcept {
     }
 }
 
+
+bool keyCodeIsDigit(KeyCode key, bool numPad) noexcept
+{
+    switch(key) {
+        case KeyCode::D0: 
+        case KeyCode::D1:
+        case KeyCode::D2: 
+        case KeyCode::D3:
+        case KeyCode::D4: 
+        case KeyCode::D5:
+        case KeyCode::D6: 
+        case KeyCode::D7:
+        case KeyCode::D8: 
+        case KeyCode::D9:
+        return numPad ? false : true;
+
+        case KeyCode::Numpad0:
+        case KeyCode::Numpad1:
+        case KeyCode::Numpad2:
+        case KeyCode::Numpad3:
+        case KeyCode::Numpad4:
+        case KeyCode::Numpad5:
+        case KeyCode::Numpad6:
+        case KeyCode::Numpad7:
+        case KeyCode::Numpad8:
+        case KeyCode::Numpad9:
+        return numPad;
+
+        default:
+        return false;
+        break;
+    }
+    return false;
+}
