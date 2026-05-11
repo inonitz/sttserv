@@ -16,7 +16,10 @@ bool parse_args(int argc, char** argv, WhisperParameters& outParams) {
             ("step",              "audio step size in milliseconds",                 cxxopts::value<i32>(outParams.m_stepMillisecond))
             ("length",            "audio length in milliseconds",                    cxxopts::value<i32>(outParams.m_lengthMilliseconds))
             ("keep",              "audio to keep from previous step in ms",          cxxopts::value<i32>(outParams.m_keepMilliseconds))
-            ("c,capture",         "capture device ID",                               cxxopts::value<i32>(outParams.capture_id))
+            ("c,captureid",       "capture  device ID",                              cxxopts::value<i32>(outParams.capture_id))
+            ("p,playbackid",      "playback device ID",                              cxxopts::value<i32>(outParams.playback_id))
+            ("gid,gpudeviceid",   "Device ID of the GPU to run inference on",        cxxopts::value<i32>(outParams.m_deviceID))
+
             ("mt,max-tokens",     "maximum number of tokens per audio chunk",        cxxopts::value<i32>(outParams.m_maxToken))
             ("ac,audio-ctx",      "audio context size (0 - all)",                    cxxopts::value<i32>(outParams.audio_ctx))
             ("bs,beam-size",      "beam size for beam search",                       cxxopts::value<i32>(outParams.beam_size))
@@ -44,7 +47,10 @@ bool parse_args(int argc, char** argv, WhisperParameters& outParams) {
         }
 
     } catch (const cxxopts::exceptions::exception& e) {
-        fprintf(stderr, "Error parsing Command line options: %s\n", e.what());
+        fprintf(stderr, "Error parsing Command line options: %s\n%s\n", 
+            e.what(),
+            cmdOptions.help().c_str()
+        );
         return false;
     }
 
@@ -59,7 +65,7 @@ bool parse_args(int argc, char** argv, WhisperParameters& outParams) {
 
 
     /* Derive Parameters from command line arguments */
-    outParams.m_numThreads         = std::min(
+    outParams.m_numThreads = std::min(
         std::max(outParams.m_numThreads, 1), 
         static_cast<i32>(std::thread::hardware_concurrency() / 2)
     );
@@ -90,6 +96,7 @@ bool init_context(
     outCtxParams = whisper_context_default_params();
     outCtxParams.use_gpu    = inArgParsed.mb_useGPU;
     outCtxParams.flash_attn = inArgParsed.mb_FlashAttention;
+    outCtxParams.gpu_device = inArgParsed.m_deviceID;
 
     *outContext = whisper_init_from_file_with_params(
         inArgParsed.m_modelFullpath.c_str(), 

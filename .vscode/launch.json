@@ -48,6 +48,27 @@
         },
         {
             // Run the lldb server manually ->
+            // [NOTE]: 
+            // ALWAYS Launch the terminal for the server outside vscode!
+            // Gemini Pro wrote a pretty good explanation: 
+            //
+            // The Diagnosis: Why Your Executable is "Deleted"
+            // 
+            // When you use platform select remote-linux and connect to 127.0.0.1, 
+            // LLDB treats your local machine as a literal remote server. 
+            // Its default behavior during a launch request, is to deploy (upload) 
+            // the target executable to this "remote" machine to ensure it has the latest build.
+            //
+            // Because the "remote" filesystem is actually your local filesystem, 
+            // LLDB attempts to upload the file to the exact same absolute path. 
+            // In doing so, it opens the destination file with a truncate flag (O_TRUNC) to write the incoming data. 
+            // This instantly wipes your executable to 0 bytes before the read operation even begins. 
+            // The file destroys itself, which is why VS Code errors out with "no such file or directory",
+            // despite establishing a connection.
+            
+            // You can find an issue that discusses this here:
+            // https://github.com/vadimcn/codelldb/discussions/964
+
             // sudo ~/.vscode/extensions/vadimcn.vscode-lldb-1.12.1/lldb/bin/lldb-server platform --server --listen *:1234
             "type": "lldb",
             "request": "launch",
@@ -57,17 +78,20 @@
                 "--model=dependencies/models/ivrit_ai/whisper-large-v3-turbo/ggml-model.bin",
                 "--fa",
                 "--step=0",
-                "--lang=he",
-                "--threads=1"
+                "--language=he",
+                "--threads=1",
+                "--translate",
+                "--gid=1",
+                "--captureid=3",
+                "--playbackid=3",
             ],
             "cwd": "${workspaceFolder}",
             "stopOnEntry": false,
             "initCommands": [ 
                 "settings set target.process.follow-fork-mode child",
                 "platform select remote-linux",
-                "platform connect connect://127.0.0.1:1234"
+                "platform connect connect://127.0.0.1:1234",
             ],
-
-        }
+        },
     ]
 }

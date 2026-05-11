@@ -200,5 +200,10 @@ constexpr std::uint16_t keyCodeToInteger(KeyCode k) noexcept {
 }
 
 const char* keyCodeToString(KeyCode key) noexcept;
+bool        keyCodeIsDigit(
+    KeyCode key, 
+    bool    numPad = false
+) noexcept;
+
 
 #endif /* __CROSS_PLATFORM_KEYCODE_TYPE_DEFINITION_HEADER__ */

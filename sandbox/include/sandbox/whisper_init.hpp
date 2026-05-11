@@ -18,7 +18,9 @@ struct WhisperParameters
     i32 m_lengthMilliseconds = 10000;
     i32 m_keepMilliseconds   = 200;
 
-    i32 capture_id = -1;
+    i32 capture_id  = -1;
+    i32 playback_id = -1;
+    i32 m_deviceID  = -1;
     i32 m_maxToken = 32;
     i32 audio_ctx  = 0;
     i32 beam_size  = -1;
