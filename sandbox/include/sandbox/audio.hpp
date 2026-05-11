@@ -28,13 +28,14 @@ public:
         const u32 kMaxSecondsToAcquire = 10;
         bool status = true;
 
-        if( (m_underlyingMem != nullptr) || m_init) {
+        if( (m_underlyingMem != nullptr) || mb_initAll) {
             return true;
         }
         
 
         status = initializeMemory();
         if(!status) {
+            destroy();
             return false;
         }
 
@@ -44,16 +45,19 @@ public:
             kMaxSecondsToAcquire
         );
         if(!status) {
+            destroy();
             return false;
         }
 
         status = initializeContext();
         if(!status) {
+            destroy();
             return false;
         }
 
         status = initializeDeviceList();
         if(!status) {
+            destroy();
             return false;
         }
 
@@ -73,18 +77,20 @@ public:
     __force_inline bool selectDevicesAndFinalize(
         void*                     custom_user_defined_pointer, 
         const ma_device_data_proc k_process_audio_chunk_functor,
-        uint8_t                   captureDeviceID  = 0xFF,
-        uint8_t                   playbackDeviceID = 0xFF
+        const u32                 k_optimal_latency_btwn_audio_req_ms = 1 /* milliseconds */,
+        u8                        captureDeviceID  = 0xFF,
+        u8                        playbackDeviceID = 0xFF
     ) {
-        m_init = initializeAudioDevice(
+        mb_initAll = initializeAudioDevice(
             captureDeviceID, 
             playbackDeviceID, 
             custom_user_defined_pointer, 
-            k_process_audio_chunk_functor
+            k_process_audio_chunk_functor,
+            k_optimal_latency_btwn_audio_req_ms
         );
 
 
-        return m_init;
+        return mb_initAll;
     }
 
 
@@ -109,21 +115,31 @@ private:
     [[nodiscard]] bool initializeContext()    noexcept;
     [[nodiscard]] bool initializeDeviceList() noexcept;
     [[nodiscard]] bool initializeAudioDevice(
-        uint8_t                   captureDeviceID,
-        uint8_t                   playbackDeviceID,
+        u8                        captureDeviceID,
+        u8                        playbackDeviceID,
         void*                     custom_user_defined_pointer, 
-        const ma_device_data_proc k_process_audio_chunk_functor
+        const ma_device_data_proc k_process_audio_chunk_functor,
+        const u32                 k_optimal_latency_btwn_audio_req_ms
     ) noexcept;
 
 private:
-    u32                   mk_ChannelCount     = UINT32_MAX;
-    u32                   mk_DeviceSampleRate = UINT32_MAX;
-    void*                 mk_CustomUserControlledPointer = nullptr;
-    ma_device_data_proc   mk_AudioProcessingUserFunction = nullptr;
-    uint8_t               m_captureDeviceIdx  = 0xFF;
-    uint8_t               m_playbackDeviceIdx = 0xFF;
-    bool                  m_init              = false;
-    uint8_t               m_reserved[5]{0};
+    u32                 mk_ChannelCount     = UINT32_MAX;
+    u32                 mk_DeviceSampleRate = UINT32_MAX;
+    void*               mk_CustomUserControlledPointer = nullptr;
+    ma_device_data_proc mk_AudioProcessingUserFunction = nullptr;
+    u8                  m_captureDeviceIdx  = 0xFF;
+    u8                  m_playbackDeviceIdx = 0xFF;
+    union {
+        struct pack {
+            bool mb_initMem;
+            bool mb_initRingBuffer;
+            bool mb_initContext;
+            bool mb_initDevList;
+            bool mb_initAudioDev;
+            bool mb_initAll;
+        };
+        bool mb_init[6] = {false};
+    };
     byte*                 m_underlyingMem     = nullptr;
     ma_context*           m_ctx               = nullptr;
     ma_pcm_rb*            m_ringBuffer        = nullptr;

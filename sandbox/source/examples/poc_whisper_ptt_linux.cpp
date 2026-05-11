@@ -14,7 +14,8 @@ struct ProgramContext
     using signalMtx = std::mutex;
 
     static constexpr uint32_t kChannelCount      = 1;
-    static constexpr uint32_t kDeviceSampleRate  = WHISPER_SAMPLE_RATE;
+    // static constexpr uint32_t kDeviceSampleRate  = WHISPER_SAMPLE_RATE;
+    static constexpr uint32_t kDeviceSampleRate = 48000;
 
     std::thread       m_readThread;
     std::thread       m_processingThread;
@@ -82,7 +83,6 @@ int main(int argc, char* argv[])
 {
     printf("CWD IS %s\n", std::filesystem::current_path().c_str());
     bool        status = true;
-    static char inputBuf[100];
     WhisperParameters commandLineArguments;
 
     AudioManager::capture_playback_pair availableDevices;
@@ -165,6 +165,7 @@ int main(int argc, char* argv[])
     status = g_ctx.m_audioMan.selectDevicesAndFinalize(
         &g_ctx, 
         audioCaptureCallbackProducer,
+        100,
         commandLineArguments.capture_id == -1 ? 0xFF : commandLineArguments.capture_id,
         commandLineArguments.playback_id == -1 ? 0xFF : commandLineArguments.playback_id
     );
@@ -274,6 +275,7 @@ Audio Capture is now available...\n\
     Press the    'A'   Key to Start/Stop\n\
     Press the 'Escape' Key to Stop the program"
     );
+    fflush(stdout);
     genericLock = std::unique_lock<std::mutex>(g_ctx.m_exitLock);
     g_ctx.m_exitSignal.wait(genericLock, []() {
         return g_ctx.m_exit == true;
