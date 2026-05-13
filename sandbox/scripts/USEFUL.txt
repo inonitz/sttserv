@@ -22,3 +22,22 @@
     python convert-h5-to-ggml.py ../../models/openai/whisper-large-v3-turbo ..\..\..\..\whisper .
     mv ggml-model.bin ../../models/openai/whisper-large-v3-turbo/ggml-model.bin
     cd ../../../sandbox/scripts
+
+
+6. Quantize an already existing ggml.bin model to q8 (int8):
+    Compile the Project with BUILD_EXAMPLES=ON
+
+    # Debug path
+    cd build/debug/static/bin
+    ./whisper-quantize ../../../../dependencies/models/distil-whisper-large-v3.5/ggml-model.bin ggml-model-q8.bin q8_0
+    mov ggml-model-q8.bin ../../../../dependencies/models/distil-whisper-large-v3.5/ggml-model-q8.bin
+
+    # Release path
+    cd build/release/static/bin
+    ./whisper-quantize ../../../../dependencies/models/distil-whisper-large-v3.5/ggml-model.bin ggml-model-q8.bin q8_0
+    mov ggml-model-q8.bin ../../../../dependencies/models/distil-whisper-large-v3.5/ggml-model-q8.bin
+
+
+
+    Note that anything lower than q8 will take a while to compress, 
+    and q5_k should be the honest sweet spot between performance degradation and memory consumption

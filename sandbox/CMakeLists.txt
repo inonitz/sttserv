@@ -8,7 +8,7 @@ set(SOURCES
     source/miniaudio_impl.c
     source/key_codes.cpp
     source/whisper_init.cpp
-    source/examples/poc_whisper_ptt_linux.cpp
+    source/examples/resample_linux.cpp
 )
 
 set(HEADERS
