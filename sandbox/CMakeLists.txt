@@ -4,7 +4,7 @@ project(sttserver_sandbox C CXX)
 
 set(SOURCES
     source/async_key.cpp
-    source/audio2.cpp
+    source/audio3.cpp
     source/miniaudio_impl.c
     source/key_codes.cpp
     source/whisper_init.cpp
@@ -14,7 +14,7 @@ set(HEADERS
 
     include/sandbox/key_codes.hpp
     include/sandbox/async_key.hpp
-    include/sandbox/audio2.hpp
+    include/sandbox/audio3.hpp
     include/sandbox/whisper_init.hpp
 )
 
@@ -23,7 +23,7 @@ add_executable(${PROJECT_NAME})
 target_sources(${PROJECT_NAME} PRIVATE ${SOURCES})
 target_sources(${PROJECT_NAME} PRIVATE ${HEADERS})
 target_sources(${PROJECT_NAME} PRIVATE
-    source/examples/10poc_trunc_data.cpp
+    source/examples/11poc_optimize_e2e.cpp
 )
 target_include_directories(${PROJECT_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_compile_features(${PROJECT_NAME} PRIVATE 

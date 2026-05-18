@@ -1,0 +1,211 @@
+#include "sandbox/examples/poc_optimize_e2e.hpp"
+
+
+static ProgramContext g_ctx;
+
+
+int main(int argc, char* argv[]) 
+{
+    constexpr const char* kWhisperSystemPrompt = "\
+        You are listening to audio input in a noisy environment.\n\
+        There may be wind, industrial vehicles operating and also man-made noises.\n\
+        You are tasked with deciphering your operators' instructions, who will talk the closest to the microphone\n\
+    ";
+    bool                         status = true;
+    WhisperParameters            commandLineArguments;
+    AudioManager3::cap_plb_pair  availableDevices;
+    uint8_t                      plbDeviceID = 0xFF;
+    uint8_t                      capDeviceID = 0xFF;
+    std::unique_lock<std::mutex> genericLock;
+
+
+    setvbuf(stdout, NULL, _IONBF, 0);
+    setvbuf(stderr, NULL, _IONBF, 0);
+
+
+    if(!whisper_parse_args(argc, argv, commandLineArguments)) {
+        fprintf(stderr, "Could Not Parse Command-line Arguments\n");
+        goto cleanup;
+        return 1;
+    }
+
+
+    g_ctx.m_keyListener.create();
+    g_ctx.m_keyListener.bindKey(KeyCode::A, [](KeyCode key) {
+        g_ctx.m_startStopFlag = !g_ctx.m_startStopFlag;
+
+        fprintf(stdout, "\nAudio Keybind %s\n", g_ctx.m_startStopFlag.load() ? "START" : "STOP ");
+        return;
+    });
+    g_ctx.m_keyListener.bindKey(KeyCode::Escape, [](KeyCode key) {
+        g_ctx.m_exit = true;
+        g_ctx.m_exitSignal.notify_all();
+        return;
+    });
+    g_ctx.m_keyListener.bindKey(KeyCode::D1, [](KeyCode key) { fprintf(stdout, "\nm_produced is %u\n", g_ctx.m_produced.load()); return; });
+    g_ctx.m_keyListener.bindKey(KeyCode::D2, [](KeyCode key) { fprintf(stdout, "\nm_dropped is %u\n", g_ctx.m_dropped.load()); return; });
+    g_ctx.m_keyListener.bindKey(KeyCode::D3, [](KeyCode key) { fprintf(stdout, "\nm_consumed is %u\n", g_ctx.m_consumed.load()); return; });
+
+
+    status = g_ctx.m_audioMan.createContext();
+    if(!status) {
+        fprintf(stderr, "Could Not Initialize Audio Manager\n");
+        goto cleanup;
+        return 1;
+    }
+
+    status = g_ctx.m_audioMan.selectDevicesAndFinalize(
+        &g_ctx, 
+        audioCaptureCallbackProducer,
+        1,
+        16000,
+        commandLineArguments.capture_id == -1 ? 0xFF : commandLineArguments.capture_id,
+        commandLineArguments.playback_id == -1 ? 0xFF : commandLineArguments.playback_id
+    );
+    if(!status) {
+        fprintf(stderr, "Could Not Finalize Audio-Device Initialization\n");
+        goto cleanup;
+        return 1;
+    }
+
+
+    g_ctx.m_readThread       = std::thread(audioProcessCallbackConsumer);
+    g_ctx.m_processingThread = std::thread(audioInferenceWorker);
+    status = g_ctx.m_audioMan.start();
+	if (!status) {
+        fprintf(stderr, "Could not start the audio device\n");
+		goto cleanup;
+		return 1;
+	}
+
+    fprintf(stdout, "\nAudio Capture is now available...\n    Press the 'A' Key to Start/Stop\n    Press the 'Escape' Key to Stop the program\n");
+    fflush(stdout);
+    
+    genericLock = std::unique_lock<std::mutex>(g_ctx.m_exitLock);
+    g_ctx.m_exitSignal.wait(genericLock, []() {
+        return g_ctx.m_exit == true;
+    });
+    genericLock.unlock();
+
+    status = g_ctx.m_audioMan.stop();
+	if (!status) {
+        fprintf(stderr, "Could not stop the audio device\n");
+		goto cleanup;
+		return 1;
+	}
+
+    g_ctx.m_exit = true;
+    g_ctx.m_audioCV.notify_all();
+    g_ctx.m_readThread.join();
+    g_ctx.m_processingThread.join();
+    goto cleanup;
+
+cleanup:
+    g_ctx.m_audioMan.destroy();
+    g_ctx.m_keyListener.destroy();
+    return status;
+}
+
+
+
+
+void audioCaptureCallbackProducer(ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount) {
+    ma_uint32 framesRemaining = frameCount;
+	ma_uint32 framesToWrite   = frameCount;
+	ma_uint32 bytesPerFrame   = ma_get_bytes_per_frame(pDevice->capture.format, pDevice->capture.channels);
+    ma_uint8* pInputBytePtr   = (uint8_t*)(pInput);
+    void*     pWriteBuffer    = nullptr;
+    const auto userCtx        = static_cast<ProgramContext*>(pDevice->pUserData);
+
+    
+    if(pOutput && pInput) {
+        std::memcpy(pOutput, pInput, frameCount * bytesPerFrame);
+    }
+
+    while (framesRemaining > 0) {
+        framesToWrite = framesRemaining;
+        ma_pcm_rb_acquire_write(userCtx->m_audioMan.ringBufferHandle(), &framesToWrite, &pWriteBuffer);
+
+        if(framesToWrite == 0) { 
+            userCtx->m_dropped.fetch_add(framesRemaining, std::memory_order_relaxed);
+            break;
+        }
+
+        std::memcpy(pWriteBuffer, pInputBytePtr, framesToWrite * bytesPerFrame);
+        ma_pcm_rb_commit_write(userCtx->m_audioMan.ringBufferHandle(), framesToWrite);
+
+        { 
+            userCtx->m_audioDataReady = true;
+        }
+        userCtx->m_audioCV.notify_one();
+
+        framesRemaining -= framesToWrite;
+        pInputBytePtr += (framesToWrite * bytesPerFrame);
+        userCtx->m_produced.fetch_add(framesToWrite, std::memory_order_relaxed);
+    }
+}
+
+void audioProcessCallbackConsumer()
+{
+    auto&     kUserCtx        = g_ctx;
+    ma_uint32 framesAvailable = 0;
+    ma_uint32 framesToRead    = 0;
+    ma_uint64 framesToRead64  = 0;
+    ma_uint64 framesToWrite64 = 0;
+    void* pReadBuffer     = nullptr;
+
+    
+    while(!kUserCtx.m_exit) 
+    {
+        std::unique_lock<std::mutex> lock(kUserCtx.m_audioLock);
+        kUserCtx.m_audioCV.wait(lock, [](){
+            return kUserCtx.m_exit.load() || kUserCtx.m_audioDataReady.load();
+        });
+        kUserCtx.m_audioDataReady = false;
+
+        if(kUserCtx.m_exit.load()) {
+            break;
+        }
+
+        framesAvailable = ma_pcm_rb_available_read(kUserCtx.m_audioMan.ringBufferHandle());
+        while(framesAvailable) {
+            framesToRead = framesAvailable;
+            ma_pcm_rb_acquire_read(kUserCtx.m_audioMan.ringBufferHandle(), &framesToRead, &pReadBuffer);
+
+            if(kUserCtx.m_startStopFlag) {
+                framesToRead64 = framesToRead;
+                framesToWrite64 = kUserCtx.m_resampleBufferSize;
+                ma_resampler_process_pcm_frames(
+                    kUserCtx.m_audioMan.resamplerHandle(), 
+                    pReadBuffer,
+                    &framesToRead64,
+                    kUserCtx.m_resampleBuffer.data(),
+                    &framesToWrite64
+                );
+
+            ma_pcm_rb_commit_read(kUserCtx.m_audioMan.ringBufferHandle(), framesToRead);
+            framesAvailable -= framesToRead;
+            kUserCtx.m_consumed.fetch_add(framesToRead, std::memory_order_relaxed);
+            }
+        }
+    }
+}
+
+
+void audioInferenceWorker()
+{
+    bool success = 0;
+
+
+    while(!g_ctx.m_exit) 
+    {
+        std::unique_lock<std::mutex> lock(g_ctx.m_inferenceLock);
+        g_ctx.m_inferenceCV.wait(lock, [](){
+            return g_ctx.m_exit.load() || g_ctx.m_inferenceBufReady.load();
+        });
+
+        if(g_ctx.m_exit.load()) {
+            break;
+        }
+    }
+}
