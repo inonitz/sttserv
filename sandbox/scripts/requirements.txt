@@ -7,3 +7,5 @@ keyboard
 argparse
 ctranslate2
 transformers[torch]
+bitsandbytes
+sentencepiece

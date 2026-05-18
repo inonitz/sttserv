@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 project(sttserver_workspace C CXX)
 
-
 include(SubmoduleUpdate.cmake)
 include(UseCCache.cmake)
 include(OutputDir.cmake)
@@ -35,13 +34,18 @@ option(ENABLE_LINK_TIME_OPTIMIZATION
     OFF
 )
 
-OPTION(TREELIB_BUILD_TESTS
+OPTION(BUILD_TESTS
     "Create Build, Run Targets for Testing of the whole project"
     OFF
 )
 
 OPTION(FORCE_COLOURED_OUTPUT
     "Always produce ANSI-colored output (GNU/Clang only)"
+    ON
+)
+
+option(ENABLE_PROFILING
+    "Enable Usage &&|| Code Paths with the MicroProfile profiler" 
     ON
 )
 
@@ -74,7 +78,66 @@ add_subdirectory(dependencies/cxxopts)
 add_subdirectory(dependencies/miniaudio)
 add_subdirectory(dependencies/util2)
 add_subdirectory(dependencies/whispercpp)
+if(ENABLE_PROFILING)
+    add_subdirectory(dependencies/tracy)
+endif()
 add_subdirectory(sandbox)
 # add_subdirectory(sttserv)
 # add_subdirectory(benchmark)
+
+
+
+# if(TRACY_ENABLE)
+#     add_subdirectory(dependencies/tracy)
+
+#     ExternalProject_Add(tracy_profiler_build
+#         SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dependencies/tracy/profiler"
+#         CMAKE_ARGS 
+#             -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+#             -DCMAKE_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM}
+#             -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+#             -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+#             -DCMAKE_COMPILE_WARNING_AS_ERROR=OFF
+#             -DNO_ISA_EXTENSIONS=ON
+#             "-DCMAKE_C_FLAGS=-D_CRT_SECURE_NO_WARNINGS=1 -DTRACY_NO_CAPSTONE=1"
+#             "-DCMAKE_CXX_FLAGS=-D_CRT_SECURE_NO_WARNINGS=1 -DTRACY_NO_CAPSTONE=1"
+#             # Inject overrides into the build-type variables so they appear last
+#             "-DCMAKE_C_FLAGS_RELEASE=-Wno-error -Wno-deprecated-declarations -Wno-unused-function"
+#             "-DCMAKE_CXX_FLAGS_RELEASE=-Wno-error"
+#             "-DCMAKE_C_FLAGS_DEBUG=-Wno-error -Wno-deprecated-declarations -Wno-unused-function"
+#             "-DCMAKE_CXX_FLAGS_DEBUG=-Wno-error"
+#             "-DCMAKE_C_FLAGS_RELWITHDEBINFO=-Wno-error -Wno-deprecated-declarations -Wno-unused-function"
+#             "-DCMAKE_CXX_FLAGS_RELWITHDEBINFO=-Wno-error"
+#         INSTALL_COMMAND ""
+#         BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/tracy_profiler_bin"
+#         USES_TERMINAL_CONFIGURE 1
+#         USES_TERMINAL_BUILD 1
+#     )
+
+#     ExternalProject_Add(tracy_capture_build
+#         SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dependencies/tracy/capture"
+#         CMAKE_ARGS 
+#             -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+#             -DCMAKE_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM}
+#             -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+#             -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+#             -DCMAKE_COMPILE_WARNING_AS_ERROR=OFF
+#             -DNO_ISA_EXTENSIONS=ON
+#             "-DCMAKE_C_FLAGS=-D_CRT_SECURE_NO_WARNINGS=1 -DTRACY_NO_CAPSTONE=1"
+#             "-DCMAKE_CXX_FLAGS=-D_CRT_SECURE_NO_WARNINGS=1 -DTRACY_NO_CAPSTONE=1"
+#             # Inject overrides into the build-type variables so they appear last
+#             "-DCMAKE_C_FLAGS_RELEASE=-Wno-error -Wno-deprecated-declarations -Wno-unused-function"
+#             "-DCMAKE_CXX_FLAGS_RELEASE=-Wno-error"
+#             "-DCMAKE_C_FLAGS_DEBUG=-Wno-error -Wno-deprecated-declarations -Wno-unused-function"
+#             "-DCMAKE_CXX_FLAGS_DEBUG=-Wno-error"
+#             "-DCMAKE_C_FLAGS_RELWITHDEBINFO=-Wno-error -Wno-deprecated-declarations -Wno-unused-function"
+#             "-DCMAKE_CXX_FLAGS_RELWITHDEBINFO=-Wno-error"
+
+#         INSTALL_COMMAND ""
+#         BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/tracy_capture_bin"
+#         USES_TERMINAL_CONFIGURE 1
+#         USES_TERMINAL_BUILD 1
+#     )
+
+# endif()
 

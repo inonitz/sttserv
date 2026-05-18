@@ -15,7 +15,7 @@
     The intention is to migrate to C/C++ and create a server that listens to filtered audio-input
 
 
-5. Converting .safetensors to .gguf/.ggml (i.e .bin):
+5. Converting .safetensors to .gguf/.ggml (i.e .bin) [whisper only!!]:
     cd sandbox/scripts
     .\venv.ps1
     cd ../../dependencies/whispercpp/models

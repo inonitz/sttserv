@@ -1,0 +1,75 @@
+#pragma once
+#include <atomic>
+#include <whisper.h>
+// #include "sandbox/key_codes.hpp"
+#include "sandbox/whisper_init.hpp"
+#include "sandbox/audio2.hpp"
+#include "sandbox/async_key.hpp"
+
+#if defined(ENABLE_PROFILING)
+#   undef ENABLE_PROFILING
+#   define ENABLE_PROFILING 0
+#endif
+
+
+#if defined(TRACY_ENABLE) & defined(ENABLE_PROFILING) && ENABLE_PROFILING == 1
+#   ifndef __profile
+#       define __profile(...) { __VA_ARGS__ }
+#   endif
+#else
+#   ifndef __profile
+#       define __profile(...) {}
+#   endif
+#endif
+
+
+struct ProgramContext 
+{
+    using signalCV = std::condition_variable;
+    using signalMtx = std::mutex;
+
+    std::thread m_readThread;
+    std::thread m_processingThread;
+    
+    signalMtx         m_exitLock;
+    std::atomic<bool> m_exit = false;
+    signalCV          m_exitSignal;
+
+    signalMtx            m_selectDeviceLock;
+    std::atomic<uint8_t> m_devicesSelected = 0;
+    signalCV             m_deviceSelectionCV;
+
+    std::atomic<bool> m_audioDataReady = false;
+    signalCV          m_audioCV;
+    signalMtx         m_audioLock;
+
+    std::atomic<bool> m_inferenceBufReady = false;
+    signalCV          m_inferenceCV;
+    signalMtx         m_inferenceLock;
+
+    std::atomic<bool> m_startStopFlag = false;
+
+    std::atomic<uint32_t> m_produced  = 0;
+    std::atomic<uint32_t> m_dropped   = 0;
+    std::atomic<uint32_t> m_consumed  = 0;
+    std::atomic<uint32_t> m_processed = 0;
+
+    AudioManager2    m_audioMan;
+    uint32_t         m_resampleBufferSize;
+    uint32_t         m_inferenceBufferSize;
+    std::vector<f32> m_resampleBuffer;
+    std::vector<f32> m_inferenceBuf;
+    std::vector<f32> m_inferSliceBuf;
+
+    AsyncKeyHook      m_keyListener;
+
+    WhisperFullContextParameters m_llmFullParams;
+    WhisperContextParameters     m_llmInitialContextParameters;
+    WhisperContextHandle         m_llmContextHandle;
+};
+
+
+void audioCaptureCallbackProducer(ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount);
+void audioProcessCallbackConsumer();
+void audioInferenceWorker();
+int  main(int argc, char* argv[]);

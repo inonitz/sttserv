@@ -72,30 +72,33 @@ $CMAKE_ARGLIST = @(
     "-DCMAKE_EXPORT_COMPILE_COMMANDS=1",
     "-DCMAKE_COLOR_DIAGNOSTICS=ON",
     "-DFORCE_COLOURED_OUTPUT=ON",
-    "-DCMAKE_CXX_FLAGS=-fdiagnostics-color=always"
-    "-DCMAKE_C_FLAGS=-fdiagnostics-color=always"
+    "-DCMAKE_CXX_FLAGS=-fdiagnostics-color=always",
+    "-DCMAKE_C_FLAGS=-fdiagnostics-color=always",
     "-DENABLE_SANITIZER_ADDRESS=OFF",
     "-DENABLE_SANITIZER_UNDEFINED=OFF",
     "-DENABLE_SANITIZER_MEMORY=OFF",
     "-DENABLE_LINK_TIME_OPTIMIZATION=OFF",
-    "-DTREELIB_BUILD_TESTS=OFF",
-    "-DGGML_VULKAN=ON"
-    "-DWHISPER_STANDALONE=OFF"
-    "-DWHISPER_ALL_WARNINGS=ON"
-    "-DWHISPER_ALL_WARNINGS_3RD_PARTY=ON"
-    "-DWHISPER_FATAL_WARNINGS=OFF"
-    "-DWHISPER_USE_SYSTEM_GGML=OFF"
-    "-DWHISPER_SANITIZE_THREAD=${ENABLE_SANITIZER_THREAD}"
-    "-DWHISPER_SANITIZE_ADDRESS=${ENABLE_SANITIZER_ADDRESS}"
-    "-DWHISPER_SANITIZE_UNDEFINED=${ENABLE_SANITIZER_UNDEFINED}"
-    "-DWHISPER_BUILD_TESTS=OFF"
-    "-DWHISPER_BUILD_EXAMPLES=ON"
-    "-DWHISPER_BUILD_SERVER=OFF"
-    "-DWHISPER_CURL=OFF"
-    "-DWHISPER_SDL2=OFF"
-    "-DWHISPER_FFMPEG=OFF"
-    "-DWHISPER_COREML=OFF"
-    "-DWHISPER_COREML_ALLOW_FALLBACK=OFF"
+    "-DENABLE_PROFILING=ON",
+    "-DTRACY_ENABLE=ON",
+    "-DTRACY_VERBOSE=ON",
+    "-DNO_ISA_EXTENSIONS=ON",
+    "-DGGML_VULKAN=ON",
+    "-DWHISPER_STANDALONE=OFF",
+    "-DWHISPER_ALL_WARNINGS=ON",
+    "-DWHISPER_ALL_WARNINGS_3RD_PARTY=ON",
+    "-DWHISPER_FATAL_WARNINGS=OFF",
+    "-DWHISPER_USE_SYSTEM_GGML=OFF",
+    "-DWHISPER_SANITIZE_THREAD=${ENABLE_SANITIZER_THREAD}",
+    "-DWHISPER_SANITIZE_ADDRESS=${ENABLE_SANITIZER_ADDRESS}",
+    "-DWHISPER_SANITIZE_UNDEFINED=${ENABLE_SANITIZER_UNDEFINED}",
+    "-DWHISPER_BUILD_TESTS=OFF",
+    "-DWHISPER_BUILD_EXAMPLES=ON",
+    "-DWHISPER_BUILD_SERVER=OFF",
+    "-DWHISPER_CURL=OFF",
+    "-DWHISPER_SDL2=OFF",
+    "-DWHISPER_FFMPEG=OFF",
+    "-DWHISPER_COREML=OFF",
+    "-DWHISPER_COREML_ALLOW_FALLBACK=OFF",
     "-DWHISPER_OPENVINO=OFF"
 )
 
@@ -179,20 +182,20 @@ if ($Action -eq "build") {
 # 4. Run
 if ($Action -eq "sandbox") {
     if (-not $DryRun) { Push-Location $CMAKE_FINAL_BUILD_DIR }
-    Run-Command "ninja run_sttserver_sandbox" { ninja run_sttserver_sandbox } # Defined in tests\CMakeLists.txt
+    Run-Command "ninja run_sttserver_sandbox" { ninja run_sttserver_sandbox } # Defined in sandbox/CMakeLists.txt
     if (-not $DryRun) { Pop-Location }
 }
 if ($Action -eq "debugsandbox") {
     if (-not $DryRun) { Push-Location $CMAKE_FINAL_BUILD_DIR }
-    Run-Command "ninja debug_sttserver_sandbox" { ninja debug_sttserver_sandbox } # Defined in tests\CMakeLists.txt
+    Run-Command "ninja debug_sttserver_sandbox" { ninja debug_sttserver_sandbox } # Defined in sandbox/CMakeLists.txt
+    if (-not $DryRun) { Pop-Location }
+}
+if ($Action -eq "debugcxxtests") {
+    if (-not $DryRun) { Push-Location $CMAKE_FINAL_BUILD_DIR }
+    Run-Command "ninja sttserver_sandbox_profile" { ninja sttserver_sandbox_profile } # Defined in sandbox/CMakeLists.txt
     if (-not $DryRun) { Pop-Location }
 }
 
-# if ($Action -eq "debugcxxtests") {
-#     if (-not $DryRun) { Push-Location $CMAKE_FINAL_BUILD_DIR }
-#     Run-Command "ninja debug_test_treelib_gtest_serial" { ninja debug_test_treelib_gtest_serial } # Defined in tests\CMakeLists.txt
-#     if (-not $DryRun) { Pop-Location }
-# }
 # if ($Action -eq "debugctests") {
 #     if (-not $DryRun) { Push-Location $CMAKE_FINAL_BUILD_DIR }
 #     # Defined in tests\CMakeListsCMocka.cmake

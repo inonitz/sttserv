@@ -100,6 +100,10 @@
         "**/.git/objects/**": true,
         "**/.git/subtree-cache/**": true,
         "**/node_modules/*/**": true,
+        "**/dependencies/*/**": true
+    },
+    "search.exclude": {
+        "dependencies/**": true
     },
     // Using Environment variables for cross-platform paths is annoying but works in this case :/
     // if you want proper clangd linting in vscode =>

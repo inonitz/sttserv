@@ -1,11 +1,13 @@
+#include <atomic>
 #include <cstring>
 #include <filesystem>
 #include <utility>
 #include <whisper.h>
 #include "sandbox/key_codes.hpp"
 #include "sandbox/whisper_init.hpp"
-#include "sandbox/audio.hpp"
+#include "sandbox/audio2.hpp"
 #include "sandbox/async_key.hpp"
+#include "util2/C/debugbreak.h"
 
 
 struct ProgramContext 
@@ -13,12 +15,9 @@ struct ProgramContext
     using signalCV = std::condition_variable;
     using signalMtx = std::mutex;
 
-    static constexpr uint32_t kChannelCount      = 1;
-    // static constexpr uint32_t kDeviceSampleRate  = WHISPER_SAMPLE_RATE;
-    static constexpr uint32_t kDeviceSampleRate = 48000;
 
-    std::thread       m_readThread;
-    std::thread       m_processingThread;
+    std::thread m_readThread;
+    std::thread m_processingThread;
     
     /* 
         Keylistener will set the exit signal to true given a certain key 
@@ -47,14 +46,17 @@ struct ProgramContext
 
     /* Counters for each thread to see if there is any disparity between capturing/processing */
     std::atomic<uint32_t> m_produced  = 0;
+    std::atomic<uint32_t> m_dropped   = 0;
     std::atomic<uint32_t> m_consumed  = 0;
     std::atomic<uint32_t> m_processed = 0;
 
 
-    AudioManager      m_audioMan;
-    uint32_t          m_inferenceBufferSize;
-    std::vector<f32>  m_inferenceBuf;
-    std::vector<f32>  m_inferSliceBuf;
+    AudioManager2    m_audioMan;
+    uint32_t         m_resampleBufferSize;
+    uint32_t         m_inferenceBufferSize;
+    std::vector<f32> m_resampleBuffer;
+    std::vector<f32> m_inferenceBuf;
+    std::vector<f32> m_inferSliceBuf;
 
     AsyncKeyHook      m_keyListener;
 
@@ -85,7 +87,7 @@ int main(int argc, char* argv[])
     bool        status = true;
     WhisperParameters commandLineArguments;
 
-    AudioManager::capture_playback_pair availableDevices;
+    AudioManager2::capture_playback_pair availableDevices;
     uint8_t plbDeviceID = 0xFF;
     uint8_t capDeviceID = 0xFF;
     std::unique_lock<std::mutex> genericLock;
@@ -122,10 +124,10 @@ int main(int argc, char* argv[])
 
     // Initialize Async Keylog Second
     g_ctx.m_keyListener.create();
-    g_ctx.m_keyListener.bindKey(KeyCode::Any, [](KeyCode key) {
-        fprintf(stdout, "\nPressed Key %s\n", keyCodeToString(key));
-        return;
-    }); 
+    // g_ctx.m_keyListener.bindKey(KeyCode::Any, [](KeyCode key) {
+    //     fprintf(stdout, "\nPressed Key %s\n", keyCodeToString(key));
+    //     return;
+    // }); 
     g_ctx.m_keyListener.bindKey(KeyCode::A, [](KeyCode key) {
         g_ctx.m_startStopFlag = !g_ctx.m_startStopFlag;
         fprintf(stdout, "\nAudio Keybind %s\n", g_ctx.m_startStopFlag.load() ? "START" : "STOP ");
@@ -136,19 +138,26 @@ int main(int argc, char* argv[])
         g_ctx.m_exitSignal.notify_all();
         return;
     });
+    g_ctx.m_keyListener.bindKey(KeyCode::D1, [](KeyCode key) {
+        fprintf(stdout, "\nm_produced is %u\n", g_ctx.m_produced.load()); return;
+    });
+    g_ctx.m_keyListener.bindKey(KeyCode::D2, [](KeyCode key) {
+        fprintf(stdout, "\nm_dropped is %u\n", g_ctx.m_dropped.load()); return;
+    });
+    g_ctx.m_keyListener.bindKey(KeyCode::D3, [](KeyCode key) {
+        fprintf(stdout, "\nm_consumed is %u\n", g_ctx.m_consumed.load()); return;
+    });
+    g_ctx.m_keyListener.bindKey(KeyCode::D4, [](KeyCode key) {
+        fprintf(stdout, "\nm_processed is %u\n", g_ctx.m_processed.load()); return;
+    });
+    
+
+
+
 
 
     // Initialize Audio manager Lastly
-    // status = g_ctx.m_audioMan.create(
-    //     ProgramContext::kChannelCount, 
-    //     ProgramContext::kDeviceSampleRate,
-    //     &g_ctx,
-    //     audioCaptureCallbackProducer
-    // );
-    status = g_ctx.m_audioMan.createContext(
-        ProgramContext::kChannelCount, 
-        ProgramContext::kDeviceSampleRate
-    );
+    status = g_ctx.m_audioMan.createContext();
     if(!status) {
         fprintf(stderr, "Could Not Initialize Audio Manager\n");
         goto cleanup;
@@ -165,7 +174,9 @@ int main(int argc, char* argv[])
     status = g_ctx.m_audioMan.selectDevicesAndFinalize(
         &g_ctx, 
         audioCaptureCallbackProducer,
-        100,
+        1,
+        1,
+        WHISPER_SAMPLE_RATE,
         commandLineArguments.capture_id == -1 ? 0xFF : commandLineArguments.capture_id,
         commandLineArguments.playback_id == -1 ? 0xFF : commandLineArguments.playback_id
     );
@@ -176,86 +187,13 @@ int main(int argc, char* argv[])
     }
 
 
-    // /* 
-    //     Get the Microphone Device ID from the user Firstly, 
-    //     continue to playing device after that 
-    // */
-    // g_ctx.m_keyListener.unbindKey(KeyCode::Any);
-    // g_ctx.m_keyListener.bindKey(KeyCode::Any, 
-    //     [
-    //         &capDeviceID, 
-    //         &kCaptureDeviceList = std::as_const(availableDevices.first)
-    //     ](KeyCode key) {
-    //         if(!keyCodeIsDigit(key)) { /* Invalid key captured */
-    //             return;
-    //         }
-            
-    //         auto selectedDeviceIdx = atoi(keyCodeToString(key));
-    //         if( selectedDeviceIdx >= kCaptureDeviceList.size() ) {
-    //             fprintf(stdout, "Invalid Index Selected for Capture Devices\n");
-    //             return;
-    //         }
-    //         capDeviceID = selectedDeviceIdx;
-    //         ++g_ctx.m_devicesSelected;
-    //         return;
-    //     }
-    // );
-
-    // /* Wait until the user picked */
-    // genericLock = std::unique_lock<std::mutex>(g_ctx.m_selectDeviceLock);
-    // g_ctx.m_deviceSelectionCV.wait(genericLock, []() {
-    //     return g_ctx.m_devicesSelected == 1; /* Capture Device was picked */
-    // });
-    // genericLock.unlock();
-
-
-    // /* 
-    //     Get the Playback (Headphones/Speakers) Device ID from the user, 
-    //     continue to main after that 
-    // */
-    // g_ctx.m_keyListener.unbindKey(KeyCode::Any);
-    // g_ctx.m_keyListener.bindKey(KeyCode::Any, 
-    //     [
-    //         &plbDeviceID, 
-    //         &kPlaybackDeviceList = std::as_const(availableDevices.second)
-    //     ](KeyCode key) {
-    //         if(!keyCodeIsDigit(key)) { /* Invalid key captured */
-    //             return;
-    //         }
-            
-    //         auto selectedDeviceIdx = atoi(keyCodeToString(key));
-    //         if( selectedDeviceIdx >= kPlaybackDeviceList.size() ) {
-    //             fprintf(stdout, "Invalid Index Selected for Capture Devices\n");
-    //             return;
-    //         }
-    //         plbDeviceID = selectedDeviceIdx;
-    //         ++g_ctx.m_devicesSelected;
-    //         return;
-    //     }
-    // );
-
-    // /* Wait until the user picked */
-    // genericLock = std::unique_lock<std::mutex>(g_ctx.m_selectDeviceLock);
-    // g_ctx.m_deviceSelectionCV.wait(genericLock, []() {
-    //     return g_ctx.m_devicesSelected == 2; /* Capture Device was picked */
-    // });
-    // genericLock.unlock();
-
-
-    // /* 
-    //     Finally the actual main code 
-    // */
-    // g_ctx.m_keyListener.unbindKey(KeyCode::Any);
-    // g_ctx.m_keyListener.bindKey(KeyCode::Any, [](KeyCode key) {
-    //     fprintf(stdout, "\nPressed Key %s\n", keyCodeToString(key));
-    //     return;
-    // }); 
-
-
     /* Reserve 10 seconds of data */
-    g_ctx.m_inferenceBufferSize = 10 * ProgramContext::kDeviceSampleRate;
-    g_ctx.m_inferenceBuf.reserve(3 * g_ctx.m_inferenceBufferSize / 2);
-    g_ctx.m_inferSliceBuf.reserve(3 * g_ctx.m_inferenceBufferSize / 2);
+    g_ctx.m_resampleBufferSize = g_ctx.m_audioMan.nativeSampleRate();
+    g_ctx.m_resampleBuffer.resize(g_ctx.m_resampleBufferSize);
+
+    g_ctx.m_inferenceBufferSize = 10 * WHISPER_SAMPLE_RATE;
+    g_ctx.m_inferenceBuf.reserve(g_ctx.m_inferenceBufferSize);
+    g_ctx.m_inferSliceBuf.reserve(g_ctx.m_inferenceBufferSize);
 
     // read thread should init first s.t it waits for data.
     g_ctx.m_readThread       = std::thread(audioProcessCallbackConsumer);
@@ -324,37 +262,37 @@ void audioCaptureCallbackProducer(
 	ma_uint32 framesToWrite   = frameCount;
 	ma_uint32 bytesPerFrame   = ma_get_bytes_per_frame(pDevice->capture.format, pDevice->capture.channels);
     ma_uint8* pInputBytePtr   = (uint8_t*)(pInput);
+    void*     pWriteBuffer    = nullptr;
     const auto userCtx        = static_cast<ProgramContext*>(pDevice->pUserData);
 
 
-    if(pOutput) {
+    if(pOutput && pInput) {
         std::memcpy(pOutput, pInput, frameCount * bytesPerFrame);
     }
 
 
     while (framesRemaining > 0) {
         framesToWrite = framesRemaining;
-        void* pWriteBuffer;
-
         ma_pcm_rb_acquire_write(userCtx->m_audioMan.ringBufferHandle(), &framesToWrite, &pWriteBuffer);
-        if (framesToWrite > 0) {
-            std::memcpy(pWriteBuffer, pInputBytePtr, framesToWrite * bytesPerFrame);
-            ma_pcm_rb_commit_write(userCtx->m_audioMan.ringBufferHandle(), framesToWrite);
 
-            { /* Lock guard will go out of scope and release the mutex */
-                std::lock_guard<std::mutex> lock(userCtx->m_audioLock);
-                userCtx->m_audioDataReady = true;
-            }
-            userCtx->m_audioCV.notify_one();
 
-            framesRemaining -= framesToWrite;
-            pInputBytePtr += (framesToWrite * bytesPerFrame);
-        } else {
-            // Buffer is literally full. In a real-time callback, 
-            // you must break here to avoid a deadlock
-            break; 
+        if(framesToWrite == 0) { /* If there is no space to write to the buffer then it is full */
+            userCtx->m_dropped.fetch_add(framesRemaining, std::memory_order_relaxed);
+            break;
         }
-        ++userCtx->m_produced;
+
+        std::memcpy(pWriteBuffer, pInputBytePtr, framesToWrite * bytesPerFrame);
+        ma_pcm_rb_commit_write(userCtx->m_audioMan.ringBufferHandle(), framesToWrite);
+
+        { /* Lock guard will go out of scope and release the mutex */
+            // std::lock_guard<std::mutex> lock(userCtx->m_audioLock);
+            userCtx->m_audioDataReady = true;
+        }
+        userCtx->m_audioCV.notify_one();
+
+        framesRemaining -= framesToWrite;
+        pInputBytePtr += (framesToWrite * bytesPerFrame);
+        userCtx->m_produced.fetch_add(framesToWrite, std::memory_order_relaxed);
     }
     return;
 }
@@ -362,55 +300,77 @@ void audioCaptureCallbackProducer(
 
 void audioProcessCallbackConsumer()
 {
+    auto&     kUserCtx        = g_ctx;
     ma_uint32 framesAvailable = 0;
     ma_uint32 framesToRead    = 0;
-    void*     pReadBuffer = nullptr;
+
+    ma_uint64 framesToRead64  = 0;
+    ma_uint64 framesToWrite64 = 0;
+    void*     pReadBuffer     = nullptr;
 
 
-    while(!g_ctx.m_exit) 
+    while(!kUserCtx.m_exit) 
     {
         /* Wait Until there is data to consume, i.e until cv is true */
-        std::unique_lock<std::mutex> lock(g_ctx.m_audioLock);
-        g_ctx.m_audioCV.wait(lock, [](){
-            return g_ctx.m_exit.load() || g_ctx.m_audioDataReady.load();
+        std::unique_lock<std::mutex> lock(kUserCtx.m_audioLock);
+        kUserCtx.m_audioCV.wait(lock, [](){
+            return kUserCtx.m_exit.load() || kUserCtx.m_audioDataReady.load();
         });
 
-        g_ctx.m_audioDataReady = false; /* Let producer continue */
+        kUserCtx.m_audioDataReady = false; /* Let producer continue */
         lock.unlock();
 
-        if(g_ctx.m_exit.load()) { /* The audio data may be ready, but we might need to exit early */
+        if(kUserCtx.m_exit.load()) { /* The audio data may be ready, but we might need to exit early */
             break;
         }
 
-        framesAvailable = ma_pcm_rb_available_read(g_ctx.m_audioMan.ringBufferHandle());
+        framesAvailable = ma_pcm_rb_available_read(kUserCtx.m_audioMan.ringBufferHandle());
         while(framesAvailable) {
             // 1. Acquire the read pointer
             framesToRead = framesAvailable;
-            ma_pcm_rb_acquire_read(g_ctx.m_audioMan.ringBufferHandle(), &framesToRead, &pReadBuffer);
+            ma_pcm_rb_acquire_read(kUserCtx.m_audioMan.ringBufferHandle(), &framesToRead, &pReadBuffer);
 
             /* If there is no need for inference we shouldn't be reading in the first. */
-            if(g_ctx.m_startStopFlag) {
-
-                // 2. Write the new data to the inference buffer
-                g_ctx.m_inferenceBuf.insert(
-                    g_ctx.m_inferenceBuf.end(), 
-                    reinterpret_cast<f32*>(pReadBuffer),
-                    reinterpret_cast<f32*>(pReadBuffer) + framesToRead
+            if(kUserCtx.m_startStopFlag) {
+                // util2_debugbreak();
+                framesToRead64 = framesToRead;
+                framesToWrite64 = kUserCtx.m_resampleBufferSize;
+                ma_resampler_process_pcm_frames(
+                    kUserCtx.m_audioMan.resamplerHandle(), 
+                    pReadBuffer,
+                    &framesToRead64,
+                    kUserCtx.m_resampleBuffer.data(),
+                    &framesToWrite64
                 );
 
+                // 2. Write the new data to the inference buffer
+                // kUserCtx.m_inferenceBuf.insert(kUserCtx.m_inferenceBuf.end(), 
+                //     kUserCtx.m_resampleBuffer.begin(),
+                //     kUserCtx.m_resampleBuffer.begin() + framesToWrite64 * ma_get_bytes_per_frame(ma_format_f32, 1)
+                // );
+                kUserCtx.m_inferenceBuf.insert(kUserCtx.m_inferenceBuf.end(), 
+                    kUserCtx.m_resampleBuffer.data(),
+                    kUserCtx.m_resampleBuffer.data() + framesToWrite64
+                );
+                // kUserCtx.m_inferenceBuf.insert(
+                //     kUserCtx.m_inferenceBuf.end(), 
+                //     reinterpret_cast<f32*>(pReadBuffer),
+                //     reinterpret_cast<f32*>(pReadBuffer) + framesToRead
+                // );
+
                 // 3. We have enough data? notify the Worker Thread so it can start working
-                if(g_ctx.m_inferenceBuf.size() >= g_ctx.m_inferenceBufferSize) 
+                if(kUserCtx.m_inferenceBuf.size() >= kUserCtx.m_inferenceBufferSize) 
                 {
-                    std::lock_guard<std::mutex> lock(g_ctx.m_inferenceLock);
-                    if(!g_ctx.m_inferenceBufReady) { /* We can write to the buffer(?) */
+                    std::lock_guard<std::mutex> lock(kUserCtx.m_inferenceLock);
+                    if(!kUserCtx.m_inferenceBufReady) { /* We can write to the buffer(?) */
                         printf("Swapping buffers\n");
 
-                        std::swap(g_ctx.m_inferSliceBuf, g_ctx.m_inferenceBuf);
+                        std::swap(kUserCtx.m_inferSliceBuf, kUserCtx.m_inferenceBuf);
 
-                        g_ctx.m_inferenceBuf.clear();
+                        kUserCtx.m_inferenceBuf.clear();
 
-                        g_ctx.m_inferenceBufReady = true;
-                        g_ctx.m_inferenceCV.notify_one();
+                        kUserCtx.m_inferenceBufReady = true;
+                        kUserCtx.m_inferenceCV.notify_one();
                     
                     } else {
                         printf("Writing to inference buffer\n");
@@ -422,20 +382,21 @@ void audioProcessCallbackConsumer()
                     the inferenceBuf size check verifies that condition.
                 */
                 /* Getting rid of the else keeps the PTT, but is still in N-second intervals. */
-                std::lock_guard<std::mutex> lock(g_ctx.m_inferenceLock);
-                g_ctx.m_inferenceBufReady = g_ctx.m_inferenceBuf.size() > 0;
-                if(g_ctx.m_inferenceBufReady) {
-                    std::swap(g_ctx.m_inferSliceBuf, g_ctx.m_inferenceBuf);
-                    g_ctx.m_inferenceBuf.clear();
-                    g_ctx.m_inferenceCV.notify_one();
+                std::lock_guard<std::mutex> lock(kUserCtx.m_inferenceLock);
+                kUserCtx.m_inferenceBufReady = kUserCtx.m_inferenceBuf.size() > 0;
+                if(kUserCtx.m_inferenceBufReady) {
+                    fprintf(stdout, "Swapped buffers!\n");
+                    std::swap(kUserCtx.m_inferSliceBuf, kUserCtx.m_inferenceBuf);
+                    kUserCtx.m_inferenceBuf.clear();
+                    kUserCtx.m_inferenceCV.notify_one();
                 }
             }
 
 
             // 3. Commit the read so the producer can reuse that space
-            ma_pcm_rb_commit_read(g_ctx.m_audioMan.ringBufferHandle(), framesToRead);
+            ma_pcm_rb_commit_read(kUserCtx.m_audioMan.ringBufferHandle(), framesToRead);
             framesAvailable -= framesToRead;
-            ++g_ctx.m_consumed;
+            kUserCtx.m_consumed.fetch_add(framesToRead, std::memory_order_relaxed);
         }
     }
     /* Should only reach here on program termination */

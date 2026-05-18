@@ -123,8 +123,8 @@ private:
     ) noexcept;
 
 private:
-    u32                 mk_ChannelCount     = UINT32_MAX;
-    u32                 mk_DeviceSampleRate = UINT32_MAX;
+    u32                 mk_ChannelCount        = UINT32_MAX;
+    u32                 mk_DeviceSampleRate    = UINT32_MAX;
     void*               mk_CustomUserControlledPointer = nullptr;
     ma_device_data_proc mk_AudioProcessingUserFunction = nullptr;
     u8                  m_captureDeviceIdx  = 0xFF;
@@ -141,8 +141,8 @@ private:
         bool mb_init[6] = {false};
     };
     byte*                 m_underlyingMem     = nullptr;
-    ma_context*           m_ctx               = nullptr;
     ma_pcm_rb*            m_ringBuffer        = nullptr;
+    ma_context*           m_ctx               = nullptr;
     ma_device*            m_audioDev          = nullptr;
     capture_playback_pair m_deviceList; /* this buddy is a whole cache line >:( */
 };

@@ -49,19 +49,19 @@ struct WhisperParameters
 };
 
 
-bool parse_args(int argc, char** argv, 
+bool whisper_parse_args(int argc, char** argv, 
     WhisperParameters& outParameters
 );
 
 
-bool init_context(
+bool whisper_init_context(
     const WhisperParameters&  inArgParsed,
     WhisperContextParameters& outCtxParams,
     WhisperContextHandle*     outContext
 );
 
 
-void destroy_context(
+void whisper_destroy_context(
     WhisperContextHandle outContext
 );
 

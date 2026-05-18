@@ -11,7 +11,7 @@
             "name": "LLDB (Windows, Static)",
             "program": "${workspaceFolder}/build/debug/static/bin/sttserver_sandbox",
             "args": [
-                "--model=dependencies/models/ivrit_ai/whisper-large-v3/ggml-model.bin",
+                "--model=dependencies/models/ivrit-ai-whisper-large-v3-turbo/ggml-model-q8.bin",
                 "--fa",
                 "--language=he",
                 "--translate",

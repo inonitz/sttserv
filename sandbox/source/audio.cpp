@@ -225,8 +225,7 @@ void AudioManager::destroy()
     const u32 kChannelCount,
     const u32 kDeviceSampleRate,
     const u32 kRingBufferSizeInSeconds
-) noexcept
-{
+) noexcept {
     const u32 kBufferRingSize = kDeviceSampleRate * kRingBufferSizeInSeconds;
 
     ma_result status = ma_pcm_rb_init(
