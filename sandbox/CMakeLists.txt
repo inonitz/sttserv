@@ -4,7 +4,7 @@ project(sttserver_sandbox C CXX)
 
 set(SOURCES
     source/async_key.cpp
-    source/audio3.cpp
+    source/audio2.cpp
     source/miniaudio_impl.c
     source/key_codes.cpp
     source/whisper_init.cpp
@@ -14,7 +14,7 @@ set(HEADERS
 
     include/sandbox/key_codes.hpp
     include/sandbox/async_key.hpp
-    include/sandbox/audio3.hpp
+    include/sandbox/audio2.hpp
     include/sandbox/whisper_init.hpp
 )
 
@@ -23,7 +23,10 @@ add_executable(${PROJECT_NAME})
 target_sources(${PROJECT_NAME} PRIVATE ${SOURCES})
 target_sources(${PROJECT_NAME} PRIVATE ${HEADERS})
 target_sources(${PROJECT_NAME} PRIVATE
-    source/examples/11poc_optimize_e2e.cpp
+    # source/examples/11poc_optimize_e2e.cpp
+    # source/examples/10poc_trunc_data.cpp
+    # include/sandbox/examples/poc_trunc_data.hpp
+    source/examples/10poc_trunc_data/trunc_data.cpp
 )
 target_include_directories(${PROJECT_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_compile_features(${PROJECT_NAME} PRIVATE 
@@ -32,7 +35,7 @@ target_compile_features(${PROJECT_NAME} PRIVATE
 )
 target_link_libraries(${PROJECT_NAME} PRIVATE 
     miniaudio
-    whisper
+    crispasr
     UTIL2::util2
     cxxopts::cxxopts
     # WORKSPACE_CONFIG::ProjectDefaultConfig
@@ -40,6 +43,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 
 
 if(ENABLE_PROFILING)
+    message(STATUS "Building Profiled Application!")
     set(PROJECT_EXE_PROFILE_NAME 
         ${PROJECT_NAME}_profile
     )
@@ -47,8 +51,9 @@ if(ENABLE_PROFILING)
     target_sources(${PROJECT_EXE_PROFILE_NAME} PRIVATE ${SOURCES})
     target_sources(${PROJECT_EXE_PROFILE_NAME} PRIVATE ${HEADERS})
     target_sources(${PROJECT_EXE_PROFILE_NAME} PRIVATE
-        source/examples/10poc_trunc_data.cpp
-        include/sandbox/examples/poc_trunc_data.hpp
+        # source/examples/10poc_trunc_data.cpp
+        # include/sandbox/examples/poc_trunc_data.hpp
+        
     )
     target_include_directories(${PROJECT_EXE_PROFILE_NAME} PRIVATE 
         "${CMAKE_CURRENT_SOURCE_DIR}/include"
@@ -68,7 +73,7 @@ if(ENABLE_PROFILING)
     )
     target_link_libraries(${PROJECT_EXE_PROFILE_NAME} PRIVATE 
         miniaudio
-        whisper
+        crispasr
         UTIL2::util2
         cxxopts::cxxopts
         Tracy::TracyClient

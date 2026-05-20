@@ -1,4 +1,5 @@
 #include "sandbox/whisper_init.hpp"
+// #include <crispasr.h>
 #include <whisper.h>
 #include <cxxopts.hpp>
 
@@ -34,10 +35,8 @@ bool whisper_parse_args(int argc, char** argv, WhisperParameters& outParams) {
             // ("f,file",            "text output file name",                           cxxopts::value<std::string>(params.m_fname_out))
             ("tdrz,tinydiarize",  "enable tinydiarize (requires tdrz model)",        cxxopts::value<bool>(outParams.mb_tinyDiarize))
             // ("sa,save-audio",     "save the recorded audio to a file",               cxxopts::value<bool>(params.mb_saveAudio))
-            ("ng,no-gpu",         "disable GPU inference",                           cxxopts::value<bool>(outParams.mb_useGPU)->implicit_value("false"))
-            ("fa,flash-attn",     "enable flash attention during inference",         cxxopts::value<bool>(outParams.mb_FlashAttention))
-            ("nfa,no-flash-attn", "disable flash attention during inference",        cxxopts::value<bool>(outParams.mb_FlashAttention)->implicit_value("false"))
-        ;
+            ("g,gpu",             "enable GPU inference",                            cxxopts::value<bool>(outParams.mb_useGPU)->implicit_value("true"))
+            ("fa,flash-attn",     "enable flash attention",                          cxxopts::value<bool>(outParams.mb_FlashAttention)->implicit_value("true"));
 
 
         auto result = cmdOptions.parse(argc, argv);
@@ -71,10 +70,10 @@ bool whisper_parse_args(int argc, char** argv, WhisperParameters& outParams) {
     );
     outParams.m_keepMilliseconds   = std::min(outParams.m_keepMilliseconds,   outParams.m_stepMillisecond);
     outParams.m_lengthMilliseconds = std::max(outParams.m_lengthMilliseconds, outParams.m_stepMillisecond);
-    outParams.mk_numSamplesStep      = (1e-3*outParams.m_stepMillisecond   ) * WHISPER_SAMPLE_RATE;
-    outParams.mk_numSamplesLength    = (1e-3*outParams.m_lengthMilliseconds) * WHISPER_SAMPLE_RATE;
-    outParams.mk_numSamplesKeep      = (1e-3*outParams.m_keepMilliseconds  ) * WHISPER_SAMPLE_RATE;
-    outParams.mk_numSamplesThirtySec = (1e-3*30000.0                       ) * WHISPER_SAMPLE_RATE;
+    outParams.mk_numSamplesStep      = (1e-3*outParams.m_stepMillisecond   ) * CRISPASR_SAMPLE_RATE;
+    outParams.mk_numSamplesLength    = (1e-3*outParams.m_lengthMilliseconds) * CRISPASR_SAMPLE_RATE;
+    outParams.mk_numSamplesKeep      = (1e-3*outParams.m_keepMilliseconds  ) * CRISPASR_SAMPLE_RATE;
+    outParams.mk_numSamplesThirtySec = (1e-3*30000.0                       ) * CRISPASR_SAMPLE_RATE;
     outParams.mkb_useVAD             = outParams.mk_numSamplesStep <= 0; /* Sliding Window Mode uses VAD */
     outParams.mk_NumTillNewline      = !outParams.mkb_useVAD ? 
         std::max(1, outParams.m_lengthMilliseconds / outParams.m_stepMillisecond - 1) 
@@ -114,3 +113,42 @@ void whisper_destroy_context(
     whisper_free(outContext);
     return;
 }
+
+
+
+
+// bool crispasr_init_context(
+//     const WhisperParameters&   inArgParsed,
+//     WhisperContextParameters&  outWhisperCtxParams,
+//     CrispASRContextParameters& outCrisprCtxParams,
+//     CrispASRContextHandle*     outContext
+// ) {
+//     outWhisperCtxParams = whisper_context_default_params();
+//     outWhisperCtxParams.use_gpu    = inArgParsed.mb_useGPU;
+//     outWhisperCtxParams.flash_attn = inArgParsed.mb_FlashAttention;
+//     outWhisperCtxParams.gpu_device = inArgParsed.m_deviceID;
+    
+
+//     CrispASRContextParameters params = {
+//         .abi_version  = 2,
+//         .n_threads    = 1,
+//         .use_gpu      = inArgParsed.mb_useGPU,
+//         .verbosity    = 1,
+//         .flash_attn   = inArgParsed.mb_FlashAttention,
+//         .n_gpu_layers = 999,
+//         .reserved     = {0}
+//     };
+//     *outContext = crispasr_session_open_with_params(
+//         inArgParsed.m_modelFullpath.c_str(), 
+//         "", 
+//         &params
+//     );
+
+
+//     return *outContext != nullptr;
+// }
+
+// void crispasr_destroy_context(CrispASRContextHandle outContext) {
+//     crispasr_session_close(outContext);
+
+// }

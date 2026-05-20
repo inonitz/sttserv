@@ -1,10 +1,8 @@
-#include "sandbox/examples/poc_trunc_data.hpp"
+#include "ctx.hpp"
 #include "sandbox/whisper_init.hpp"
-#include <atomic>
-#include <chrono>
-#include <util2/time.hpp>
-#include <util2/C/compiler_warning.h>
+#include <cstring>
 #ifdef TRACY_ENABLE
+#   include <util2/C/compiler_warning.h>
 #   pragma WARN("Tracy is still enabled!")
 #   include <tracy/Tracy.hpp>
 #   include <windows.h>
@@ -32,11 +30,11 @@ int main(int argc, char* argv[])
         ZoneScopedN("main"); 
         printf("HIIIIIIIIIIIIIIIIIIII\n");
     })
-    constexpr const char* kWhisperSystemPrompt = "\
-        You are listening to audio input in a noisy environment.\n\
-        There may be wind, industrial vehicles operating and also man-made noises.\n\
-        You are tasked with deciphering your operators' instructions, who will talk the closest to the microphone\n\
-    ";
+    constexpr const char* kWhisperSystemPrompt = 
+    "You are listening to audio input in a noisy environment.\n"
+    "There may be wind, industrial vehicles operating and also man-made noises.\n"
+    "You are tasked with deciphering your operators' instructions, who will talk the closest to the microphone";
+
     bool                         status = true;
     WhisperParameters            commandLineArguments;
     AudioManager2::cap_plb_pair  availableDevices;
@@ -54,14 +52,26 @@ int main(int argc, char* argv[])
         goto cleanup;
         return 1;
     }
-    status = whisper_init_context(commandLineArguments, g_ctx.m_llmInitialContextParameters, &g_ctx.m_llmContextHandle);
+    // status = whisper_init_context(commandLineArguments, g_ctx.m_llmInitialContextParameters, &g_ctx.m_llmContextHandle);
+    // if (!status) {
+    //     fprintf(stderr, "Could Not Initialize Whisper\n");
+    //     goto cleanup;
+    //     return 1;
+    // }
+    status = crispasr_init_context(
+        commandLineArguments, 
+        g_ctx.m_llmInitialContextParameters, 
+        g_ctx.m_crispasrLLMParams,
+        &g_ctx.m_crispASRLLMContextHandle
+    );
     if (!status) {
-        fprintf(stderr, "Could Not Initialize Whisper\n");
+        fprintf(stderr, "Could Not Initialize CrispASR\n");
         goto cleanup;
         return 1;
     }
 
-    g_ctx.m_llmFullParams = whisper_full_default_params(whisper_sampling_strategy::WHISPER_SAMPLING_GREEDY);
+
+    g_ctx.m_llmFullParams = whisper_full_default_params(whisper_sampling_strategy::CRISPASR_SAMPLING_GREEDY);
     g_ctx.m_llmFullParams.n_threads            = commandLineArguments.m_numThreads;
     g_ctx.m_llmFullParams.offset_ms            = 0;
     g_ctx.m_llmFullParams.duration_ms          = 1000;
@@ -80,14 +90,15 @@ int main(int argc, char* argv[])
     g_ctx.m_llmFullParams.detect_language      = false;
     g_ctx.m_llmFullParams.suppress_blank       = true;
     g_ctx.m_llmFullParams.no_speech_thold      = 0.1f;
+    g_ctx.m_llmFullParams.temperature_inc      = 0.0f; /* One-Shot guessing, no second attempts */
     g_ctx.m_llmFullParams.vad                  = false;
-
-    fprintf(stdout, "Translation to english enabled? %s\nModel is even multiligunal? %u\n", 
-        commandLineArguments.mb_translateEnglish ? "YES" : "NO",
-        whisper_is_multilingual(g_ctx.m_llmContextHandle)
-    );
+    // fprintf(stdout, "Translation to english enabled? %s\nModel is even multiligunal? %u\n", 
+    //     commandLineArguments.mb_translateEnglish ? "YES" : "NO",
+    //     whisper_is_multilingual(g_ctx.m_llmContextHandle)
+    // );
     g_ctx.m_llmFullParams.translate = commandLineArguments.mb_translateEnglish;
     g_ctx.m_llmFullParams.language  = commandLineArguments.m_lang.c_str();
+
 
     g_ctx.m_keyListener.create();
     g_ctx.m_keyListener.bindKey(KeyCode::A, [](KeyCode key) {
@@ -125,9 +136,9 @@ int main(int argc, char* argv[])
     status = g_ctx.m_audioMan.selectDevicesAndFinalize(
         &g_ctx, 
         audioCaptureCallbackProducer,
+        10,
         1,
-        1,
-        WHISPER_SAMPLE_RATE,
+        ProgramContext::kInferenceSampleRate,
         commandLineArguments.capture_id == -1 ? 0xFF : commandLineArguments.capture_id,
         commandLineArguments.playback_id == -1 ? 0xFF : commandLineArguments.playback_id
     );
@@ -139,7 +150,7 @@ int main(int argc, char* argv[])
 
     g_ctx.m_resampleBufferSize = g_ctx.m_audioMan.nativeSampleRate();
     g_ctx.m_resampleBuffer.resize(g_ctx.m_resampleBufferSize);
-    g_ctx.m_inferenceBufferSize = 10 * WHISPER_SAMPLE_RATE;
+    g_ctx.m_inferenceBufferSize = 10 * ProgramContext::kInferenceSampleRate;
     g_ctx.m_inferenceBuf.reserve(g_ctx.m_inferenceBufferSize);
     g_ctx.m_inferSliceBuf.reserve(g_ctx.m_inferenceBufferSize);
 
@@ -178,7 +189,8 @@ int main(int argc, char* argv[])
 cleanup:
     g_ctx.m_audioMan.destroy();
     g_ctx.m_keyListener.destroy();
-    whisper_destroy_context(g_ctx.m_llmContextHandle);
+    crispasr_destroy_context(g_ctx.m_crispASRLLMContextHandle);
+    // whisper_destroy_context(g_ctx.m_llmContextHandle);
     __profile({ TracyMessageL("Main End"); })
     return status;
 }
@@ -333,31 +345,64 @@ void audioInferenceWorker()
             if(g_ctx.m_recordTimerFlag == false) {
                 g_ctx.mr_startPTT_Till_ReleasePTT.tock();
                 const auto elapsedTimeNs = g_ctx.mr_startPTT_Till_ReleasePTT.duration().count();
-                fprintf(stdout, "End-End Transcription Took %lld ns (%lld Microseconds) (%lld Milliseconds)\n",
-                    elapsedTimeNs, (elapsedTimeNs+999) / 1000, (elapsedTimeNs+1000000-1) / 1000000
+                fprintf(stdout, "End-End Transcription Took %llu ns (%llu Microseconds) (%llu Milliseconds)\n",
+                    __scast(unsigned long long, elapsedTimeNs),
+                    __scast(unsigned long long, (elapsedTimeNs+999) / 1000),
+                    __scast(unsigned long long, (elapsedTimeNs+1000000-1) / 1000000)
                 );
                 g_ctx.m_llmFullParams.duration_ms = (elapsedTimeNs+1000000-1) / 1000000;
             }
 
-            success = whisper_full(
-                g_ctx.m_llmContextHandle, 
-                g_ctx.m_llmFullParams, 
+            g_ctx.mr_Start_Till_EndOfInfer.tick();
+            // success = whisper_full(
+            //     g_ctx.m_llmContextHandle, 
+            //     g_ctx.m_llmFullParams, 
+            //     g_ctx.m_inferSliceBuf.data(), 
+            //     g_ctx.m_inferSliceBuf.size()
+            // );
+            // if(success != 0) {
+            //     fprintf(stderr, "Failed to process audio\n");
+            // } else {
+            //     const int n_segments = whisper_full_n_segments(g_ctx.m_llmContextHandle);
+            //     for (int i = 0; i < n_segments; ++i) {
+            //         const char* text = whisper_full_get_segment_text(g_ctx.m_llmContextHandle, i);
+            //         fprintf(stdout, "Transcription [%d, nospeechprob=%3.3f]: %s\n", 
+            //             i, 
+            //             whisper_full_get_segment_no_speech_prob(g_ctx.m_llmContextHandle, i),
+            //             text
+            //         );
+            //     }
+            // }
+            auto* sessionResult = crispasr_session_transcribe_lang(
+                g_ctx.m_crispASRLLMContextHandle, 
                 g_ctx.m_inferSliceBuf.data(), 
-                g_ctx.m_inferSliceBuf.size()
+                g_ctx.m_inferSliceBuf.size(),
+                g_ctx.m_llmFullParams.language
             );
-            if(success != 0) {
+            if(sessionResult == nullptr) {
                 fprintf(stderr, "Failed to process audio\n");
             } else {
-                const int n_segments = whisper_full_n_segments(g_ctx.m_llmContextHandle);
-                for (int i = 0; i < n_segments; ++i) {
-                    const char* text = whisper_full_get_segment_text(g_ctx.m_llmContextHandle, i);
-                    fprintf(stdout, "Transcription [%d, nospeechprob=%3.3f]: %s\n", 
-                        i, 
-                        whisper_full_get_segment_no_speech_prob(g_ctx.m_llmContextHandle, i),
-                        text
+                for (int i = 0; i < sessionResult->segments.size(); ++i) {
+                    const char* text = sessionResult->segments[i].text.c_str();
+                    fputs("------------------------------------------------\n", stdout);
+                    fprintf(stdout, "Transcription [%d]: %s\n", i, 
+                        sessionResult->segments[i].text.c_str()
                     );
+                    for(auto& word : sessionResult->segments[i].words) {
+                        fprintf(stdout, "\n  word [prob=%3.3f]: %s", word.p, word.text.c_str());
+                    }
+                    fputs("------------------------------------------------\n", stdout);
                 }
             }
+            g_ctx.mr_Start_Till_EndOfInfer.tock();
+            
+            
+            const auto elapsedTimeNs = g_ctx.mr_Start_Till_EndOfInfer.duration().count();
+            fprintf(stdout, "Whisper GPU Time %llu ns (%llu Microseconds) (%llu Milliseconds)\n",
+                __scast(unsigned long long, elapsedTimeNs),
+                __scast(unsigned long long, (elapsedTimeNs+999) / 1000),
+                __scast(unsigned long long, (elapsedTimeNs+1000000-1) / 1000000)
+            );
 
             {
                 std::unique_lock<std::mutex> lock(g_ctx.m_inferenceLock);
@@ -370,8 +415,11 @@ void audioInferenceWorker()
                 g_ctx.mr_ReleasePTT_Till_EndOfInfer.tock();
                 const auto elapsedTimeNs = g_ctx.mr_ReleasePTT_Till_EndOfInfer.duration().count();
                 fputs("Audio Keybind End-End Query End\n", stdout);
-                fprintf(stdout, "  End-End Query Took %lld ns (%lld Microseconds) (%lld Milliseconds)\n",
-                    elapsedTimeNs, (elapsedTimeNs+999) / 1000, (elapsedTimeNs+1000000-1) / 1000000
+                fprintf(stdout, "  End-End Query Took %llu ns (%llu Microseconds) (%llu Milliseconds)\n",
+                    
+                    __scast(unsigned long long, elapsedTimeNs), 
+                    __scast(unsigned long long, (elapsedTimeNs+999) / 1000), 
+                    __scast(unsigned long long, (elapsedTimeNs+1000000-1) / 1000000)
                 );
             }
             __profile({ FrameMark; })

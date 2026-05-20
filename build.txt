@@ -17,3 +17,4 @@ $currentPath = (Get-Location).Path; Start-Process powershell -Verb RunAs -Argume
 ./build.sh debug static build
 ./build.sh debug static sandbox
 sudo ./sttserver_sandbox --model="../../../../dependencies/models/openai/whisper-large-v3-turbo/ggml-model.bin" --fa --step=0 --lang he
+sudo ~/workspaces/sttserv/build/release/static/bin/sttserver_sandbox --model=dependencies/models/distil-whisper-large-v3.5/ggml-model-q5k.bin --fa --step=0 --language=en --threads=1 --gid=1 --captureid=12 --playbackid=12

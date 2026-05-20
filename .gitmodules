@@ -38,6 +38,7 @@
 [submodule "dependencies/miniaudio"]
 	path = dependencies/miniaudio
 	url = https://github.com/mackron/miniaudio
+	branch = master
 
 [submodule "dependencies/cxxopts"]
 	path = dependencies/cxxopts
@@ -47,3 +48,9 @@
 [submodule "dependencies/tracy"]
 	path = dependencies/tracy
 	url = https://github.com/wolfpld/tracy.git
+	branch = master
+
+[submodule "dependencies/CrispASR"]
+	path = dependencies/CrispASR
+	url = https://github.com/CrispStrobe/CrispASR
+	branch = refs/tags/v0.6.7

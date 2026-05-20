@@ -267,6 +267,27 @@ void AudioManager2::destroy()
 
 [[nodiscard]] bool AudioManager2::initializeDeviceList() noexcept
 {
+    const auto print_single_device_func = [](const ma_device_info& info, uint8_t index) {
+        fprintf(stdout, "[%u, Default=%s, Native Formats=%u] %s\n", 
+            index, 
+            info.isDefault ? "Yes" : "No ", 
+            info.nativeDataFormatCount,
+            info.name
+        );
+        
+        for (ma_uint32 j = 0; j < info.nativeDataFormatCount; ++j) {
+            fprintf(stdout, "   [%u] Format: %d | Channels: %u | Rate: %u Hz | Flags: 0x%X\n",
+                j,
+                info.nativeDataFormats[j].format,
+                info.nativeDataFormats[j].channels,
+                info.nativeDataFormats[j].sampleRate,
+                info.nativeDataFormats[j].flags
+            );
+        }
+        return;
+    };
+
+
     ma_device_info*  pCaptureDeviceInfos;
     ma_device_info*  pPlaybackDeviceInfos;
     u32              captureDeviceCount;
@@ -316,6 +337,14 @@ void AudioManager2::destroy()
         pbDeviceIdx = pPlaybackDeviceInfos[i].isDefault ? i : pbDeviceIdx;
     }
     fprintf(stdout, "----------------------------------------\n");
+    
+
+    for(uint32_t i = 0; i < m_deviceList.first.size(); ++i) {
+        print_single_device_func(m_deviceList.first[i], i);
+    }
+    for(uint32_t i = 0; i < m_deviceList.second.size(); ++i) {
+        print_single_device_func(m_deviceList.second[i], i);
+    }
 
 
     /* pick Defaults unless later specified otherwise */

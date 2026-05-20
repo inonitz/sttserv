@@ -1,11 +1,11 @@
 #pragma once
-#include <atomic>
-#include <whisper.h>
-// #include "sandbox/key_codes.hpp"
+#include <crispasr.h>
 #include <util2/time.hpp>
+#include <atomic>
 #include "sandbox/whisper_init.hpp"
 #include "sandbox/audio2.hpp"
 #include "sandbox/async_key.hpp"
+
 
 #if defined(ENABLE_PROFILING)
 #   undef ENABLE_PROFILING
@@ -24,10 +24,14 @@
 #endif
 
 
+
+
+
 struct ProgramContext 
 {
     using signalCV = std::condition_variable;
     using signalMtx = std::mutex;
+    static constexpr u32 kInferenceSampleRate = CRISPASR_SAMPLE_RATE; 
 
     std::thread m_readThread;
     std::thread m_processingThread;
@@ -59,10 +63,12 @@ struct ProgramContext
     std::atomic<bool>    m_processingTimerFlag;
     util2::Time::Timer<> m_recordTime;
     util2::Time::Timer<> m_processingTime;
+    util2::Time::Timer<> m_whisperTime;
     util2::Time::Timer<> m_loggingTime;
 
     util2::Time::Timer<>& mr_startPTT_Till_ReleasePTT   = m_recordTime;
     util2::Time::Timer<>& mr_ReleasePTT_Till_EndOfInfer = m_processingTime;
+    util2::Time::Timer<>& mr_Start_Till_EndOfInfer      = m_whisperTime;
 
     AudioManager2    m_audioMan;
     uint32_t         m_resampleBufferSize;
@@ -76,6 +82,9 @@ struct ProgramContext
     WhisperFullContextParameters m_llmFullParams;
     WhisperContextParameters     m_llmInitialContextParameters;
     WhisperContextHandle         m_llmContextHandle;
+    
+    CrispASRContextParameters    m_crispasrLLMParams;
+    CrispASRContextHandle        m_crispASRLLMContextHandle;
 };
 
 

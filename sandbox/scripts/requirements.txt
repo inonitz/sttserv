@@ -9,3 +9,4 @@ ctranslate2
 transformers[torch]
 bitsandbytes
 sentencepiece
+gguf

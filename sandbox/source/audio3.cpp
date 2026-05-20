@@ -176,8 +176,10 @@ bool AudioManager3::selectDevicesAndFinalize(
 {
 #if defined(UTIL2_OS_LINUX)
     ma_backend backends[] = { ma_backend_pulseaudio, ma_backend_alsa };
-    const ma_backend* pBackendHandle = backends;
-    const ma_uint32 backendCount = 2;
+    // const ma_backend* pBackendHandle = backends;
+    // const ma_uint32 backendCount = 2;
+    const ma_backend* pBackendHandle = NULL;
+    const ma_uint32   backendCount = 0;
 #else
     const ma_backend* pBackendHandle = NULL;
     const ma_uint32   backendCount = 0;

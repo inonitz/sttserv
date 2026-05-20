@@ -3,12 +3,16 @@
 #include <util2/C/base_type.h>
 #include <thread>
 #include <string>
+// #include "sandbox/crispasr_cbind.hpp"
 
 
-using WhisperContextParameters     = struct whisper_context_params;
-using WhisperFullContextParameters = struct whisper_full_params;
-using WhisperContext               = struct whisper_context;
-using WhisperContextHandle         = WhisperContext*;
+using WhisperContextParameters        = struct whisper_context_params;
+using WhisperFullContextParameters    = struct whisper_full_params;
+using WhisperContext                  = struct whisper_context;
+using WhisperContextHandle            = WhisperContext*;
+
+// using CrispASRContextParameters = crispasr_open_params_v1;
+// using CrispASRContextHandle     = crispasr_session*;
 
 
 struct WhisperParameters 
@@ -53,17 +57,27 @@ bool whisper_parse_args(int argc, char** argv,
     WhisperParameters& outParameters
 );
 
-
 bool whisper_init_context(
     const WhisperParameters&  inArgParsed,
     WhisperContextParameters& outCtxParams,
     WhisperContextHandle*     outContext
 );
 
-
 void whisper_destroy_context(
     WhisperContextHandle outContext
 );
+
+
+// bool crispasr_init_context(
+//     const WhisperParameters&   inArgParsed,
+//     WhisperContextParameters&  outWhisperCtxParams,
+//     CrispASRContextParameters& outCrisprCtxParams,
+//     CrispASRContextHandle*     outContext
+// );
+
+// void crispasr_destroy_context(
+//     CrispASRContextHandle outContext
+// );
 
 
 
