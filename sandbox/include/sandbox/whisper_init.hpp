@@ -1,6 +1,7 @@
 #ifndef __WHISPER_CPP_INIT_DEFINITION_HEADER__
 #define __WHISPER_CPP_INIT_DEFINITION_HEADER__
 #include <util2/C/base_type.h>
+#include <whisper.h>
 #include <thread>
 #include <string>
 // #include "sandbox/crispasr_cbind.hpp"
@@ -17,6 +18,8 @@ using WhisperContextHandle            = WhisperContext*;
 
 struct WhisperParameters 
 {
+    static constexpr u32 kInferenceSampleRate = WHISPER_SAMPLE_RATE;
+
     i32 m_numThreads         = std::thread::hardware_concurrency() / 4;
     i32 m_stepMillisecond    = 3000;
     i32 m_lengthMilliseconds = 10000;

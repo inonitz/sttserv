@@ -19,7 +19,7 @@
     cd sandbox/scripts
     .\venv.ps1
     cd ../../dependencies/whispercpp/models
-    python convert-h5-to-ggml.py ../../models/openai/whisper-large-v3-turbo ..\..\..\..\whisper .
+    python convert-h5-to-ggml.py ../../models/openai/whisper-large-v3-turbo ../../../../whisper .
     mv ggml-model.bin ../../models/openai/whisper-large-v3-turbo/ggml-model.bin
     cd ../../../sandbox/scripts
 

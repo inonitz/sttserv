@@ -70,10 +70,10 @@ bool whisper_parse_args(int argc, char** argv, WhisperParameters& outParams) {
     );
     outParams.m_keepMilliseconds   = std::min(outParams.m_keepMilliseconds,   outParams.m_stepMillisecond);
     outParams.m_lengthMilliseconds = std::max(outParams.m_lengthMilliseconds, outParams.m_stepMillisecond);
-    outParams.mk_numSamplesStep      = (1e-3*outParams.m_stepMillisecond   ) * CRISPASR_SAMPLE_RATE;
-    outParams.mk_numSamplesLength    = (1e-3*outParams.m_lengthMilliseconds) * CRISPASR_SAMPLE_RATE;
-    outParams.mk_numSamplesKeep      = (1e-3*outParams.m_keepMilliseconds  ) * CRISPASR_SAMPLE_RATE;
-    outParams.mk_numSamplesThirtySec = (1e-3*30000.0                       ) * CRISPASR_SAMPLE_RATE;
+    outParams.mk_numSamplesStep      = (1e-3*outParams.m_stepMillisecond   ) * WhisperParameters::kInferenceSampleRate;
+    outParams.mk_numSamplesLength    = (1e-3*outParams.m_lengthMilliseconds) * WhisperParameters::kInferenceSampleRate;
+    outParams.mk_numSamplesKeep      = (1e-3*outParams.m_keepMilliseconds  ) * WhisperParameters::kInferenceSampleRate;
+    outParams.mk_numSamplesThirtySec = (1e-3*30000.0                       ) * WhisperParameters::kInferenceSampleRate;
     outParams.mkb_useVAD             = outParams.mk_numSamplesStep <= 0; /* Sliding Window Mode uses VAD */
     outParams.mk_NumTillNewline      = !outParams.mkb_useVAD ? 
         std::max(1, outParams.m_lengthMilliseconds / outParams.m_stepMillisecond - 1) 

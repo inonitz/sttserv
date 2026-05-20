@@ -35,7 +35,7 @@ target_compile_features(${PROJECT_NAME} PRIVATE
 )
 target_link_libraries(${PROJECT_NAME} PRIVATE 
     miniaudio
-    crispasr
+    whisper
     UTIL2::util2
     cxxopts::cxxopts
     # WORKSPACE_CONFIG::ProjectDefaultConfig

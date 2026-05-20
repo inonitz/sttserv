@@ -1,11 +1,10 @@
 #pragma once
 #include <atomic>
-#include <whisper.h>
-// #include "sandbox/key_codes.hpp"
 #include <util2/time.hpp>
 #include "sandbox/whisper_init.hpp"
 #include "sandbox/audio2.hpp"
 #include "sandbox/async_key.hpp"
+
 
 #if defined(ENABLE_PROFILING)
 #   undef ENABLE_PROFILING
@@ -28,7 +27,6 @@ struct ProgramContext
 {
     using signalCV = std::condition_variable;
     using signalMtx = std::mutex;
-    static constexpr u32 kInferenceSampleRate = CRISPASR_SAMPLE_RATE; 
 
     std::thread m_readThread;
     std::thread m_processingThread;

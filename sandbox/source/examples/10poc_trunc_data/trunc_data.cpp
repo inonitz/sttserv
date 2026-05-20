@@ -62,13 +62,13 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    g_ctx.m_llmFullParams = whisper_full_default_params(whisper_sampling_strategy::CRISPASR_SAMPLING_GREEDY);
+    g_ctx.m_llmFullParams = whisper_full_default_params(whisper_sampling_strategy::WHISPER_SAMPLING_GREEDY);
     g_ctx.m_llmFullParams.n_threads            = commandLineArguments.m_numThreads;
     g_ctx.m_llmFullParams.offset_ms            = 0;
     g_ctx.m_llmFullParams.duration_ms          = 1000;
     g_ctx.m_llmFullParams.translate            = false;
     g_ctx.m_llmFullParams.no_timestamps        = true;
-    g_ctx.m_llmFullParams.single_segment       = true;
+    g_ctx.m_llmFullParams.single_segment       = true; /* set to true for streaming. currently word-level probability is required for confidence validation */
     g_ctx.m_llmFullParams.print_special        = false;
     g_ctx.m_llmFullParams.print_progress       = false;
     g_ctx.m_llmFullParams.print_realtime       = false;
@@ -80,16 +80,15 @@ int main(int argc, char* argv[])
     g_ctx.m_llmFullParams.language             = "en";
     g_ctx.m_llmFullParams.detect_language      = false;
     g_ctx.m_llmFullParams.suppress_blank       = true;
-    g_ctx.m_llmFullParams.no_speech_thold      = 0.1f;
     g_ctx.m_llmFullParams.temperature_inc      = 0.0f; /* One-Shot guessing, no second attempts */
+    g_ctx.m_llmFullParams.entropy_thold        = 2.4f;
+    g_ctx.m_llmFullParams.logprob_thold        = -1.0f;
+    g_ctx.m_llmFullParams.no_speech_thold      = 0.1f;
     g_ctx.m_llmFullParams.vad                  = false;
 
-    fprintf(stdout, "Translation to english enabled? %s\nModel is even multiligunal? %u\n", 
-        commandLineArguments.mb_translateEnglish ? "YES" : "NO",
-        whisper_is_multilingual(g_ctx.m_llmContextHandle)
-    );
-    g_ctx.m_llmFullParams.translate = commandLineArguments.mb_translateEnglish;
-    g_ctx.m_llmFullParams.language  = commandLineArguments.m_lang.c_str();
+    // g_ctx.m_llmFullParams.language             = commandLineArguments.m_lang.c_str();
+    // g_ctx.m_llmFullParams.detect_language      = (commandLineArguments.m_lang == "auto") || (commandLineArguments.m_lang == "");
+    // g_ctx.m_llmFullParams.translate            = whisper_is_multilingual(g_ctx.m_llmContextHandle) ? commandLineArguments.mb_translateEnglish : false;
 
 
     g_ctx.m_keyListener.create();
@@ -118,6 +117,7 @@ int main(int argc, char* argv[])
     g_ctx.m_keyListener.bindKey(KeyCode::D3, [](KeyCode key) { fprintf(stdout, "\nm_consumed is %u\n", g_ctx.m_consumed.load()); return; });
     g_ctx.m_keyListener.bindKey(KeyCode::D4, [](KeyCode key) { fprintf(stdout, "\nm_processed is %u\n", g_ctx.m_processed.load()); return; });
 
+
     status = g_ctx.m_audioMan.createContext();
     if(!status) {
         fprintf(stderr, "Could Not Initialize Audio Manager\n");
@@ -128,9 +128,9 @@ int main(int argc, char* argv[])
     status = g_ctx.m_audioMan.selectDevicesAndFinalize(
         &g_ctx, 
         audioCaptureCallbackProducer,
-        10,
         1,
-        ProgramContext::kInferenceSampleRate,
+        1,
+        WhisperParameters::kInferenceSampleRate,
         commandLineArguments.capture_id == -1 ? 0xFF : commandLineArguments.capture_id,
         commandLineArguments.playback_id == -1 ? 0xFF : commandLineArguments.playback_id
     );
@@ -140,9 +140,10 @@ int main(int argc, char* argv[])
         return 1;
     }
 
+
     g_ctx.m_resampleBufferSize = g_ctx.m_audioMan.nativeSampleRate();
     g_ctx.m_resampleBuffer.resize(g_ctx.m_resampleBufferSize);
-    g_ctx.m_inferenceBufferSize = 10 * ProgramContext::kInferenceSampleRate;
+    g_ctx.m_inferenceBufferSize = 10 * WhisperParameters::kInferenceSampleRate;
     g_ctx.m_inferenceBuf.reserve(g_ctx.m_inferenceBufferSize);
     g_ctx.m_inferSliceBuf.reserve(g_ctx.m_inferenceBufferSize);
 
@@ -344,6 +345,7 @@ void audioInferenceWorker()
                 g_ctx.m_llmFullParams.duration_ms = (elapsedTimeNs+1000000-1) / 1000000;
             }
 
+
             g_ctx.mr_Start_Till_EndOfInfer.tick();
             success = whisper_full(
                 g_ctx.m_llmContextHandle, 
@@ -357,12 +359,28 @@ void audioInferenceWorker()
                 const int n_segments = whisper_full_n_segments(g_ctx.m_llmContextHandle);
                 for (int i = 0; i < n_segments; ++i) {
                     const char* text = whisper_full_get_segment_text(g_ctx.m_llmContextHandle, i);
-                    fprintf(stdout, "Transcription [%d, nospeechprob=%3.3f]: %s\n", 
+                    fprintf(stdout, "Transcription [%d]: %s\n", 
                         i, 
-                        whisper_full_get_segment_no_speech_prob(g_ctx.m_llmContextHandle, i),
                         text
                     );
                 }
+                // for (int i = 0; i < whisper_full_n_segments(g_ctx.m_llmContextHandle); ++i) 
+                // {
+                //     fputs("------------------------------------------------\n", stdout);
+                //     fprintf(stdout, "Transcription [%d]: %s\n", i,  
+                //         whisper_full_get_segment_text(g_ctx.m_llmContextHandle, i)
+                //     );
+                    
+                //     for(int j = 0; j < whisper_full_n_tokens(g_ctx.m_llmContextHandle, i); ++j) {
+                //         whisper_token_data tokenData = whisper_full_get_token_data(g_ctx.m_llmContextHandle, i, j);
+                //         fprintf(stdout, "\n  Token, Timestamp probabilities ==> [%3.3f, %3.3f]\n", 
+                //             tokenData.p, 
+                //             tokenData.pt
+                //         );
+                //     }
+                //     // whisper_full_get_token_p
+                //     fputs("------------------------------------------------\n", stdout);
+                // }
             }
             g_ctx.mr_Start_Till_EndOfInfer.tock();
             const auto elapsedTimeNs = g_ctx.mr_Start_Till_EndOfInfer.duration().count();
@@ -371,6 +389,7 @@ void audioInferenceWorker()
                 __scast(unsigned long long, (elapsedTimeNs+999) / 1000),
                 __scast(unsigned long long, (elapsedTimeNs+1000000-1) / 1000000)
             );
+
 
             {
                 std::unique_lock<std::mutex> lock(g_ctx.m_inferenceLock);
@@ -384,7 +403,6 @@ void audioInferenceWorker()
                 const auto elapsedTimeNs = g_ctx.mr_ReleasePTT_Till_EndOfInfer.duration().count();
                 fputs("Audio Keybind End-End Query End\n", stdout);
                 fprintf(stdout, "  End-End Query Took %llu ns (%llu Microseconds) (%llu Milliseconds)\n",
-                    
                     __scast(unsigned long long, elapsedTimeNs), 
                     __scast(unsigned long long, (elapsedTimeNs+999) / 1000), 
                     __scast(unsigned long long, (elapsedTimeNs+1000000-1) / 1000000)
