@@ -41,3 +41,7 @@
 	path = dependencies/tracy
 	url = https://github.com/wolfpld/tracy.git
 	branch = master
+[submodule "dependencies/cxxopts"]
+	path = dependencies/cxxopts
+	url = https://github.com/jarro2783/cxxopts
+	branch = master
