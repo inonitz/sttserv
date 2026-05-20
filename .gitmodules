@@ -25,32 +25,3 @@
 # 	url = https://github.com/google/benchmark
 # 	branch = main
 
-[submodule "dependencies/util2"]
-	path = dependencies/util2
-	url = https://github.com/inonitz/util2
-	branch = main
-
-[submodule "dependencies/whispercpp"]
-	path = dependencies/whispercpp
-	url = https://github.com/ggml-org/whisper.cpp
-	branch = master
-
-[submodule "dependencies/miniaudio"]
-	path = dependencies/miniaudio
-	url = https://github.com/mackron/miniaudio
-	branch = master
-
-[submodule "dependencies/cxxopts"]
-	path = dependencies/cxxopts
-	url = https://github.com/jarro2783/cxxopts
-	branch = master
-
-[submodule "dependencies/tracy"]
-	path = dependencies/tracy
-	url = https://github.com/wolfpld/tracy.git
-	branch = master
-
-[submodule "dependencies/CrispASR"]
-	path = dependencies/CrispASR
-	url = https://github.com/CrispStrobe/CrispASR
-	branch = refs/tags/v0.6.7
