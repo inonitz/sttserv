@@ -45,3 +45,7 @@
 	path = dependencies/cxxopts
 	url = https://github.com/jarro2783/cxxopts
 	branch = master
+[submodule "dependencies/sherpa-onnx"]
+	path = dependencies/sherpa-onnx
+	url = https://github.com/k2-fsa/sherpa-onnx
+	branch = master
