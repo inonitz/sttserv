@@ -3,14 +3,16 @@ project(sttserver_workspace C CXX)
 
 include(SubmoduleUpdate.cmake)
 include(UseCCache.cmake)
+include(ColouredOutput.cmake)
 include(OutputDir.cmake)
 include(WorkspaceOptions.cmake)
 
-
 # Workspace/Project-Wide Specific Configurations
-update_submodules_on_cmake_configure("dependencies")
+enable_coloured_diagnostics_if_available()
 use_ccache_program_if_exists()
 define_aggregate_output_artifact_directory()
+
+update_submodules_on_cmake_configure("dependencies")
 
 
 # Workspace/Project-Wide Options
@@ -77,7 +79,8 @@ declare_optional_interface_default_project_configuration()
 add_subdirectory(dependencies/cxxopts)
 add_subdirectory(dependencies/miniaudio)
 add_subdirectory(dependencies/util2)
-add_subdirectory(dependencies/whispercpp)
+# add_subdirectory(dependencies/whispercpp)
+add_subdirectory(dependencies/sherpa-onnx)
 if(ENABLE_PROFILING)
     message(STATUS "Building Tracy for Profiling!")
     add_subdirectory(dependencies/tracy)
@@ -88,7 +91,8 @@ add_subdirectory(sandbox)
 # add_subdirectory(benchmark)
 
 
-
+# I couldn't get Tracy to build inside build/
+# Must be built manually... :(
 # if(TRACY_ENABLE)
 #     add_subdirectory(dependencies/tracy)
 

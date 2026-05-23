@@ -7,7 +7,7 @@ set(SOURCES
     source/audio2.cpp
     source/miniaudio_impl.c
     source/key_codes.cpp
-    source/whisper_init.cpp
+    # source/whisper_init.cpp
 )
 
 set(HEADERS
@@ -15,7 +15,7 @@ set(HEADERS
     include/sandbox/key_codes.hpp
     include/sandbox/async_key.hpp
     include/sandbox/audio2.hpp
-    include/sandbox/whisper_init.hpp
+    # include/sandbox/whisper_init.hpp
 )
 
 
@@ -26,7 +26,8 @@ target_sources(${PROJECT_NAME} PRIVATE
     # source/examples/11poc_optimize_e2e.cpp
     # source/examples/10poc_trunc_data.cpp
     # include/sandbox/examples/poc_trunc_data.hpp
-    source/examples/10poc_trunc_data/trunc_data.cpp
+    # source/examples/10poc_trunc_data/trunc_data.cpp
+    source/examples/13poc_onnxruntime/onnx_test2.cpp
 )
 target_include_directories(${PROJECT_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_compile_features(${PROJECT_NAME} PRIVATE 
@@ -34,12 +35,15 @@ target_compile_features(${PROJECT_NAME} PRIVATE
     cxx_std_17
 )
 target_link_libraries(${PROJECT_NAME} PRIVATE 
+    sherpa-onnx-cxx-api
     miniaudio
-    whisper
+    # whisper
     UTIL2::util2
     cxxopts::cxxopts
     # WORKSPACE_CONFIG::ProjectDefaultConfig
 )
+
+
 
 
 if(ENABLE_PROFILING)
