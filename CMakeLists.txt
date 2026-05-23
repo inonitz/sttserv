@@ -6,144 +6,124 @@ include(UseCCache.cmake)
 include(ColouredOutput.cmake)
 include(OutputDir.cmake)
 include(WorkspaceOptions.cmake)
+include(BuildDiagnostics.cmake)
 
 # Workspace/Project-Wide Specific Configurations
 enable_coloured_diagnostics_if_available()
 use_ccache_program_if_exists()
 define_aggregate_output_artifact_directory()
 
+
 update_submodules_on_cmake_configure("dependencies")
 
 
 # Workspace/Project-Wide Options
-option(ENABLE_SANITIZER_ADDRESS
-    "Enable AddressSanitizer"
-    OFF
-)
+OPTION(STTSERVER_FORCE_COLOURED_OUTPUT         "Always produce ANSI-colored output (GNU/Clang only) (Platform Agnostic)"                                                                                ON)
+OPTION(STTSERVER_ENABLE_SANITIZER_ADDRESS      "Enable AddressSanitizer"                                                                                                                                OFF)
+OPTION(STTSERVER_ENABLE_SANITIZER_UNDEFINED    "Enable UndefinedBehaviorSanitizer"                                                                                                                      OFF)
+OPTION(STTSERVER_ENABLE_SANITIZER_MEMORY       "Enable MemorySanitizer"                                                                                                                                 OFF)
+OPTION(STTSERVER_ENABLE_LINK_TIME_OPTIMIZATION "Enable Link-Time/Interprocedural Optimization (LTO/IPO)"                                                                                                OFF)
+OPTION(STTSERVER_ENABLE_TRACY_PROFILING        "Enable Code-paths for the Tracy Profiler"                                                                                                               OFF)
+OPTION(STTSERVER_BUILD_BACKEND_WHISPER         "Build the server with the master branch of https://github.com/ggml-org/whisper.cpp (GGML Runtime - CPU OR Modern Cuda OR Modern ROCm OR Vulkan OR Metal)" OFF)
+OPTION(STTSERVER_BUILD_BACKEND_PARAKEET        "Build the server with the feature-parakeet branch of https://github.com/danbev/whisper.cpp/tree/parakeet-support (GGML Runtime)"                        OFF)
+OPTION(STTSERVER_BUILD_BACKEND_SHERPA_ONNX     "Build the server with the sherpa-onnx (Onnxruntime - CPU OR Modern Cuda/Modern ROCm)"                                                                   OFF)
+OPTION(STTSERVER_BUILD_EXECUTABLE              "Build The actual Speech-To-Text [ASR] Server. use sttserv --help for options"                                                                           OFF)
+OPTION(STTSERVER_BUILD_TESTS                   "Testing Correct functionality of the project"                                                                                                           OFF)
+OPTION(STTSERVER_BUILD_BENCHMARKS              "Testing Performance/Accuracy Metrics The project needs to achieve"                                                                                      OFF)
 
-option(ENABLE_SANITIZER_UNDEFINED
-    "Enable UndefinedBehaviorSanitizer"
-    OFF
-)
-
-option(ENABLE_SANITIZER_MEMORY
-    "Enable MemorySanitizer"
-    OFF
-)
-
-option(ENABLE_LINK_TIME_OPTIMIZATION
-    "Enable Link-Time/Interprocedural Optimization (LTO/IPO)"
-    OFF
-)
-
-OPTION(BUILD_TESTS
-    "Create Build, Run Targets for Testing of the whole project"
-    OFF
-)
-
-OPTION(FORCE_COLOURED_OUTPUT
-    "Always produce ANSI-colored output (GNU/Clang only)"
-    ON
-)
-
-option(ENABLE_PROFILING
-    "Enable Usage &&|| Code Paths with the MicroProfile profiler" 
-    ON
-)
-
-
+# Early error conditions
 if(ENABLE_SANITIZER_ADDRESS AND ENABLE_SANITIZER_MEMORY)
     message(FATAL_ERROR "ASan and MSan are mutually exclusive. Please choose only one\n")
 endif()
 
-# Thanks to the following gentlemen:
-# https://stackoverflow.com/a/77419222
-# https://medium.com/@alasher/colored-c-compiler-output-with-ninja-clang-gcc-10bfe7f2b949
-if(FORCE_COLOURED_OUTPUT)
-    if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-        add_compile_options(-fdiagnostics-color=always)
-
-    elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-        add_compile_options(-fansi-escape-codes)
-        add_compile_options(-fcolor-diagnostics)
-    endif()
+if(NOT STTSERVER_BUILD_BACKEND_WHISPER AND NOT STTSERVER_BUILD_BACKEND_PARAKEET AND NOT STTSERVER_BUILD_BACKEND_SHERPA_ONNX)
+    message(FATAL_ERROR "Must Select Atleast 1 Backend to build the project with")
 endif()
 
+if(STTSERVER_BUILD_BACKEND_WHISPER AND STTSERVER_BUILD_BACKEND_PARAKEET)
+    message(FATAL_ERROR "Compiling with Both Libraries will create multiple definitions of the same underlying library. Enable one or the other.")
+endif()
 
-# Declare interface libraries 
+# Declare interface libraries - Sanitizer Interface Library depends on these
 declare_optional_interface_library_different_sanitizers()
 declare_optional_interface_library_lto()
 declare_optional_interface_default_project_configuration()
 
 
-add_subdirectory(dependencies/cxxopts)
-add_subdirectory(dependencies/miniaudio)
-add_subdirectory(dependencies/util2)
-# add_subdirectory(dependencies/whispercpp)
-add_subdirectory(dependencies/sherpa-onnx)
-if(ENABLE_PROFILING)
-    message(STATUS "Building Tracy for Profiling!")
+if(STTSERVER_FORCE_COLOURED_OUTPUT)
+    set(CMAKE_COLOR_DIAGNOSTICS ON)
+    enable_coloured_diagnostics_if_available()
+endif()
+
+if(STTSERVER_ENABLE_SANITIZER_ADDRESS)
+    add_link_options(WORKSPACE_CONFIG::AddressSanitizerInterface)
+endif()
+
+if(STTSERVER_ENABLE_SANITIZER_UNDEFINED)
+    add_link_options(WORKSPACE_CONFIG::UBSanInterface)
+endif()
+
+if(STTSERVER_ENABLE_SANITIZER_MEMORY)
+    add_link_options(WORKSPACE_CONFIG::MemorySanitizerInterface)
+endif()
+
+if(STTSERVER_ENABLE_LINK_TIME_OPTIMIZATION)
+    add_link_options(WORKSPACE_CONFIG::LTO)
+endif()
+
+
+
+
+if(STTSERVER_BUILD_BACKEND_WHISPER OR STTSERVER_BUILD_BACKEND_PARAKEET)
+    setup_whisper_backend_defaults()
+endif()
+if(STTSERVER_BUILD_BACKEND_SHERPA_ONNX)
+    setup_sherpa_onnx_backend_defaults()
+endif()
+
+
+# Print Enabled/Disabled Flags For Verbose Diagnostics
+print_all_workspace_flags_and_vars()
+
+
+# ---------------- The Actual Start of the cmake (after all the configuration bullshit) ----------------
+if(STTSERVER_ENABLE_TRACY_PROFILING)
+    message(STATUS "Building with Tracy for Profiling!")
+    set(TRACY_ENABLE  ON)
+    set(TRACY_VERBOSE ON)
     add_subdirectory(dependencies/tracy)
 endif()
 
-add_subdirectory(sandbox)
-# add_subdirectory(sttserv)
-# add_subdirectory(benchmark)
+if(STTSERVER_BUILD_BACKEND_WHISPER)
+    message(STATUS "Building with backend whisper.cpp (master branch)")
+    setup_whisper_backend_defaults()
+    add_subdirectory(dependencies/whispercpp)
+endif()
+
+if(STTSERVER_BUILD_BACKEND_PARAKEET)
+    message(STATUS "Building with backend whisper.cpp (parakeet feature-branch [dan-bev])")
+    add_subdirectory(dependencies/parakeetcpp)
+endif()
+
+if(STTSERVER_BUILD_BACKEND_SHERPA_ONNX)
+    message(STATUS "Building with backend sherpa-onnx")
+    add_subdirectory(dependencies/sherpa-onnx)
+endif()
 
 
-# I couldn't get Tracy to build inside build/
-# Must be built manually... :(
-# if(TRACY_ENABLE)
-#     add_subdirectory(dependencies/tracy)
+add_subdirectory(dependencies/cxxopts)
+add_subdirectory(dependencies/miniaudio)
+add_subdirectory(dependencies/util2)
+if(STTSERVER_BUILT_EXECUTABLE)
+    add_subdirectory(sandbox)
+endif()
+if(STTSERVER_BUILD_TESTS)
+    add_subdirectory(test)
+endif()
 
-#     ExternalProject_Add(tracy_profiler_build
-#         SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dependencies/tracy/profiler"
-#         CMAKE_ARGS 
-#             -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-#             -DCMAKE_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM}
-#             -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
-#             -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
-#             -DCMAKE_COMPILE_WARNING_AS_ERROR=OFF
-#             -DNO_ISA_EXTENSIONS=ON
-#             "-DCMAKE_C_FLAGS=-D_CRT_SECURE_NO_WARNINGS=1 -DTRACY_NO_CAPSTONE=1"
-#             "-DCMAKE_CXX_FLAGS=-D_CRT_SECURE_NO_WARNINGS=1 -DTRACY_NO_CAPSTONE=1"
-#             # Inject overrides into the build-type variables so they appear last
-#             "-DCMAKE_C_FLAGS_RELEASE=-Wno-error -Wno-deprecated-declarations -Wno-unused-function"
-#             "-DCMAKE_CXX_FLAGS_RELEASE=-Wno-error"
-#             "-DCMAKE_C_FLAGS_DEBUG=-Wno-error -Wno-deprecated-declarations -Wno-unused-function"
-#             "-DCMAKE_CXX_FLAGS_DEBUG=-Wno-error"
-#             "-DCMAKE_C_FLAGS_RELWITHDEBINFO=-Wno-error -Wno-deprecated-declarations -Wno-unused-function"
-#             "-DCMAKE_CXX_FLAGS_RELWITHDEBINFO=-Wno-error"
-#         INSTALL_COMMAND ""
-#         BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/tracy_profiler_bin"
-#         USES_TERMINAL_CONFIGURE 1
-#         USES_TERMINAL_BUILD 1
-#     )
+if(STTSERVER_BUILD_BENCHMARKS)
+    add_subdirectory(benchmark)
+endif()
 
-#     ExternalProject_Add(tracy_capture_build
-#         SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dependencies/tracy/capture"
-#         CMAKE_ARGS 
-#             -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-#             -DCMAKE_MAKE_PROGRAM=${CMAKE_MAKE_PROGRAM}
-#             -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
-#             -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
-#             -DCMAKE_COMPILE_WARNING_AS_ERROR=OFF
-#             -DNO_ISA_EXTENSIONS=ON
-#             "-DCMAKE_C_FLAGS=-D_CRT_SECURE_NO_WARNINGS=1 -DTRACY_NO_CAPSTONE=1"
-#             "-DCMAKE_CXX_FLAGS=-D_CRT_SECURE_NO_WARNINGS=1 -DTRACY_NO_CAPSTONE=1"
-#             # Inject overrides into the build-type variables so they appear last
-#             "-DCMAKE_C_FLAGS_RELEASE=-Wno-error -Wno-deprecated-declarations -Wno-unused-function"
-#             "-DCMAKE_CXX_FLAGS_RELEASE=-Wno-error"
-#             "-DCMAKE_C_FLAGS_DEBUG=-Wno-error -Wno-deprecated-declarations -Wno-unused-function"
-#             "-DCMAKE_CXX_FLAGS_DEBUG=-Wno-error"
-#             "-DCMAKE_C_FLAGS_RELWITHDEBINFO=-Wno-error -Wno-deprecated-declarations -Wno-unused-function"
-#             "-DCMAKE_CXX_FLAGS_RELWITHDEBINFO=-Wno-error"
 
-#         INSTALL_COMMAND ""
-#         BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/tracy_capture_bin"
-#         USES_TERMINAL_CONFIGURE 1
-#         USES_TERMINAL_BUILD 1
-#     )
-
-# endif()
 
