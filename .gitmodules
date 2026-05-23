@@ -49,3 +49,7 @@
 	path = dependencies/sherpa-onnx
 	url = https://github.com/k2-fsa/sherpa-onnx
 	branch = master
+[submodule "dependencies/parakeetcpp"]
+	path = dependencies/parakeetcpp
+	url = https://github.com/danbev/whisper.cpp
+	branch = parakeet-support
