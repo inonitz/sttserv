@@ -8,7 +8,7 @@ include(OutputDir.cmake)
 include(WorkspaceOptions.cmake)
 include(BuildDiagnostics.cmake)
 
-# Workspace/Project-Wide Specific Configurations
+# 1. Workspace/Project-Wide Specific Configurations
 enable_coloured_diagnostics_if_available()
 use_ccache_program_if_exists()
 define_aggregate_output_artifact_directory()
@@ -17,7 +17,7 @@ define_aggregate_output_artifact_directory()
 update_submodules_on_cmake_configure("dependencies")
 
 
-# Workspace/Project-Wide Options
+# 2. Workspace/Project-Wide Options
 OPTION(STTSERVER_FORCE_COLOURED_OUTPUT         "Always produce ANSI-colored output (GNU/Clang only) (Platform Agnostic)"                                                                                ON)
 OPTION(STTSERVER_ENABLE_SANITIZER_ADDRESS      "Enable AddressSanitizer"                                                                                                                                OFF)
 OPTION(STTSERVER_ENABLE_SANITIZER_UNDEFINED    "Enable UndefinedBehaviorSanitizer"                                                                                                                      OFF)
@@ -44,12 +44,14 @@ if(STTSERVER_BUILD_BACKEND_WHISPER AND STTSERVER_BUILD_BACKEND_PARAKEET)
     message(FATAL_ERROR "Compiling with Both Libraries will create multiple definitions of the same underlying library. Enable one or the other.")
 endif()
 
-# Declare interface libraries - Sanitizer Interface Library depends on these
+
+# 3. Declare interface libraries - Sanitizer Interface Library depends on these
 declare_optional_interface_library_different_sanitizers()
 declare_optional_interface_library_lto()
 declare_optional_interface_default_project_configuration()
 
 
+# 4. Process Actions related to the options above.
 if(STTSERVER_FORCE_COLOURED_OUTPUT)
     set(CMAKE_COLOR_DIAGNOSTICS ON)
     enable_coloured_diagnostics_if_available()
@@ -73,19 +75,18 @@ endif()
 
 
 
-
+# 5. Print Enabled/Disabled Flags For Verbose Diagnostics
+#       Default flags set here before printing to catch anything wrong
 if(STTSERVER_BUILD_BACKEND_WHISPER OR STTSERVER_BUILD_BACKEND_PARAKEET)
     setup_whisper_backend_defaults()
 endif()
 if(STTSERVER_BUILD_BACKEND_SHERPA_ONNX)
     setup_sherpa_onnx_backend_defaults()
 endif()
-
-
-# Print Enabled/Disabled Flags For Verbose Diagnostics
 print_all_workspace_flags_and_vars()
 
 
+# 6.
 # ---------------- The Actual Start of the cmake (after all the configuration bullshit) ----------------
 if(STTSERVER_ENABLE_TRACY_PROFILING)
     message(STATUS "Building with Tracy for Profiling!")
@@ -96,7 +97,6 @@ endif()
 
 if(STTSERVER_BUILD_BACKEND_WHISPER)
     message(STATUS "Building with backend whisper.cpp (master branch)")
-    setup_whisper_backend_defaults()
     add_subdirectory(dependencies/whispercpp)
 endif()
 
@@ -114,7 +114,7 @@ endif()
 add_subdirectory(dependencies/cxxopts)
 add_subdirectory(dependencies/miniaudio)
 add_subdirectory(dependencies/util2)
-if(STTSERVER_BUILT_EXECUTABLE)
+if(STTSERVER_BUILD_EXECUTABLE)
     add_subdirectory(sandbox)
 endif()
 if(STTSERVER_BUILD_TESTS)
