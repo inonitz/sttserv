@@ -13,6 +13,7 @@ $currentPath = (Get-Location).Path; Start-Process powershell -Verb RunAs -Argume
 
 
 # linux
+sudo usermod -aG input $USER
 ./build.sh debug static configure
 ./build.sh debug static build
 ./build.sh debug static sandbox

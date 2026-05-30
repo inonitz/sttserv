@@ -1,0 +1,8 @@
+parakeetcpp:
+./build/debug/static/bin/parakeet_example --model=dependencies/models/nvidia--parakeet-tdt-0.6b-v3/ggml-parakeet-tdt-0.6b-v3-f32.bin --fa --language=en --threads=2 --captureid=1 --playbackid=0 --gid=1
+
+whispercpp:
+./build/debug/static/bin/whisper_example --model=dependencies/models/distil-whisper-large-v3.5/ggml-model-q5k.bin --fa --language=en --threads=2 --captureid=1 --playbackid=0 --gid=1
+
+sherpa-onnx (parakeet):
+./build/release/static/bin/sherpaonnx_example --fa --threads 2 --keep 5000 --captureid=1 --playbackid=0 --mfp=dependencies/models/sherpa-onnx/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-fp16 --en=encoder.fp16.onnx --de=decoder.fp16.onnx --jo=joiner.fp16.onnx --tok=tokens.txt

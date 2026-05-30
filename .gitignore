@@ -1,6 +1,8 @@
 # Dependency Files
 dependencies/local_models/*
 dependencies/models/*
+dependencies/recordings/*
+dependencies/asr_data.zip
 
 
 # Build output

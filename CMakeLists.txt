@@ -40,9 +40,9 @@ if(NOT STTSERVER_BUILD_BACKEND_WHISPER AND NOT STTSERVER_BUILD_BACKEND_PARAKEET 
     message(FATAL_ERROR "Must Select Atleast 1 Backend to build the project with")
 endif()
 
-if(STTSERVER_BUILD_BACKEND_WHISPER AND STTSERVER_BUILD_BACKEND_PARAKEET)
-    message(FATAL_ERROR "Compiling with Both Libraries will create multiple definitions of the same underlying library. Enable one or the other.")
-endif()
+# if(STTSERVER_BUILD_BACKEND_WHISPER AND STTSERVER_BUILD_BACKEND_PARAKEET)
+#     message(FATAL_ERROR "Compiling with Both Libraries will create multiple definitions of the same underlying library. Enable one or the other.")
+# endif()
 
 
 # 3. Declare interface libraries - Sanitizer Interface Library depends on these
@@ -89,24 +89,24 @@ print_all_workspace_flags_and_vars()
 # 6.
 # ---------------- The Actual Start of the cmake (after all the configuration bullshit) ----------------
 if(STTSERVER_ENABLE_TRACY_PROFILING)
-    message(STATUS "Building with Tracy for Profiling!")
+    message(STATUS "[STTSERVER_ENABLE_TRACY_PROFILING] Building with Tracy for Profiling!")
     set(TRACY_ENABLE  ON)
     set(TRACY_VERBOSE ON)
     add_subdirectory(dependencies/tracy)
 endif()
 
 if(STTSERVER_BUILD_BACKEND_WHISPER)
-    message(STATUS "Building with backend whisper.cpp (master branch)")
+    message(STATUS "[STTSERVER_BUILD_BACKEND_WHISPER] Building with backend whisper.cpp (master branch)")
     add_subdirectory(dependencies/whispercpp)
 endif()
 
 if(STTSERVER_BUILD_BACKEND_PARAKEET)
-    message(STATUS "Building with backend whisper.cpp (parakeet feature-branch [dan-bev])")
+    message(STATUS "[STTSERVER_BUILD_BACKEND_PARAKEET] Building with backend whisper.cpp (parakeet feature-branch [dan-bev])")
     add_subdirectory(dependencies/parakeetcpp)
 endif()
 
 if(STTSERVER_BUILD_BACKEND_SHERPA_ONNX)
-    message(STATUS "Building with backend sherpa-onnx")
+    message(STATUS "[STTSERVER_BUILD_BACKEND_SHERPA_ONNX] Building with backend sherpa-onnx")
     add_subdirectory(dependencies/sherpa-onnx)
 endif()
 
@@ -115,9 +115,11 @@ add_subdirectory(dependencies/cxxopts)
 add_subdirectory(dependencies/miniaudio)
 add_subdirectory(dependencies/util2)
 if(STTSERVER_BUILD_EXECUTABLE)
-    add_subdirectory(sandbox)
+    add_subdirectory(sttserv)
+    # add_subdirectory(sandbox2)
 endif()
 if(STTSERVER_BUILD_TESTS)
+    add_subdirectory(dependencies/googletest)
     add_subdirectory(test)
 endif()
 
