@@ -53,25 +53,26 @@ declare_optional_interface_library_lto()
 declare_optional_interface_default_project_configuration()
 
 # 4. Process Actions related to the options above.
+# 4. Process Actions related to the options above.
 if(STTSERVER_FORCE_COLOURED_OUTPUT)
     set(CMAKE_COLOR_DIAGNOSTICS ON)
     enable_coloured_diagnostics_if_available()
 endif()
 
 if(STTSERVER_ENABLE_SANITIZER_ADDRESS)
-    add_link_options(WORKSPACE_CONFIG::AddressSanitizerInterface)
+    add_link_options(STTSERVER_WORKSPACE_CONFIG::AddressSanitizerInterface)
 endif()
 
 if(STTSERVER_ENABLE_SANITIZER_UNDEFINED)
-    add_link_options(WORKSPACE_CONFIG::UBSanInterface)
+    add_link_options(STTSERVER_WORKSPACE_CONFIG::UBSanInterface)
 endif()
 
 if(STTSERVER_ENABLE_SANITIZER_MEMORY)
-    add_link_options(WORKSPACE_CONFIG::MemorySanitizerInterface)
+    add_link_options(STTSERVER_WORKSPACE_CONFIG::MemorySanitizerInterface)
 endif()
 
 if(STTSERVER_ENABLE_LINK_TIME_OPTIMIZATION)
-    add_link_options(WORKSPACE_CONFIG::LTO)
+    add_link_options(STTSERVER_WORKSPACE_CONFIG::LTO)
 endif()
 
 # 5. Print Enabled/Disabled Flags For Verbose Diagnostics

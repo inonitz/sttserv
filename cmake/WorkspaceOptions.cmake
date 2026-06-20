@@ -14,12 +14,12 @@ macro(check_sanitizer_support FLAG_TO_CHECK OUTPUT_VAR)
     cmake_pop_check_state()
 endmacro()
 
-set(SANITIZER_ADDRESS_INTERFACE_NAME             workspace_cfg_address_sanitizer_interface)
-set(SANITIZER_UNDEFINED_BEHAVIOUR_INTERFACE_NAME workspace_cfg_ubsan_sanitizer_interface)
-set(SANITIZER_MEMORY_INTERFACE_NAME              workspace_cfg_memory_sanitizer_interface)
-set(SANITIZER_AGGREGATE_INTERFACE_NAME           workspace_cfg_sanitizers)
-set(LINK_TIME_OPT_INTERFACE_NAME                 workspace_cfg_lto_ipo)
-set(PROJECT_CONFIG_INTERFACE_NAME                generic_project_cfg)
+set(SANITIZER_ADDRESS_INTERFACE_NAME             sttserver_workspace_cfg_address_sanitizer_interface)
+set(SANITIZER_UNDEFINED_BEHAVIOUR_INTERFACE_NAME sttserver_workspace_cfg_ubsan_sanitizer_interface)
+set(SANITIZER_MEMORY_INTERFACE_NAME              sttserver_workspace_cfg_memory_sanitizer_interface)
+set(SANITIZER_AGGREGATE_INTERFACE_NAME           sttserver_workspace_cfg_sanitizers)
+set(LINK_TIME_OPT_INTERFACE_NAME                 sttserver_workspace_cfg_lto_ipo)
+set(PROJECT_CONFIG_INTERFACE_NAME                sttserver_generic_project_cfg)
 
 check_sanitizer_support("-fsanitize=address" COMPILER_HAS_ASAN_NOT_MSVC)
 check_sanitizer_support("/fsanitize=address" COMPILER_HAS_ASAN_MSVC)
@@ -30,9 +30,9 @@ check_sanitizer_support("/fsanitize=memory" COMPILER_HAS_MEMSAN_MSVC)
 check_ipo_supported(RESULT LTO_SUPPORT_CHECK_RESULT OUTPUT LTO_SUPPORT_CHECK_OUTPUT)
 
 # Configure Interface Projects For Different Sanitizers
-if(NOT TARGET WORKSPACE_CONFIG::AddressSanitizerInterface)
+if(NOT TARGET STTSERVER_WORKSPACE_CONFIG::AddressSanitizerInterface)
     add_library(${SANITIZER_ADDRESS_INTERFACE_NAME} INTERFACE)
-    add_library(WORKSPACE_CONFIG::AddressSanitizerInterface ALIAS ${SANITIZER_ADDRESS_INTERFACE_NAME})
+    add_library(STTSERVER_WORKSPACE_CONFIG::AddressSanitizerInterface ALIAS ${SANITIZER_ADDRESS_INTERFACE_NAME})
 
     if(COMPILER_HAS_ASAN_NOT_MSVC)
         target_compile_options(${SANITIZER_ADDRESS_INTERFACE_NAME} INTERFACE -fsanitize=address -fno-omit-frame-pointer)
@@ -45,9 +45,9 @@ if(NOT TARGET WORKSPACE_CONFIG::AddressSanitizerInterface)
     endif()
 endif()
 
-if(NOT TARGET WORKSPACE_CONFIG::UBSanInterface)
+if(NOT TARGET STTSERVER_WORKSPACE_CONFIG::UBSanInterface)
     add_library(${SANITIZER_UNDEFINED_BEHAVIOUR_INTERFACE_NAME} INTERFACE)
-    add_library(WORKSPACE_CONFIG::UBSanInterface ALIAS ${SANITIZER_UNDEFINED_BEHAVIOUR_INTERFACE_NAME})
+    add_library(STTSERVER_WORKSPACE_CONFIG::UBSanInterface ALIAS ${SANITIZER_UNDEFINED_BEHAVIOUR_INTERFACE_NAME})
 
     if(COMPILER_HAS_UBSAN_NOT_MSVC)
         target_compile_options(${SANITIZER_UNDEFINED_BEHAVIOUR_INTERFACE_NAME} INTERFACE -fsanitize=undefined)
@@ -60,9 +60,9 @@ if(NOT TARGET WORKSPACE_CONFIG::UBSanInterface)
     endif()
 endif()
 
-if(NOT TARGET WORKSPACE_CONFIG::MemorySanitizerInterface)
+if(NOT TARGET STTSERVER_WORKSPACE_CONFIG::MemorySanitizerInterface)
     add_library(${SANITIZER_MEMORY_INTERFACE_NAME} INTERFACE)
-    add_library(WORKSPACE_CONFIG::MemorySanitizerInterface ALIAS ${SANITIZER_MEMORY_INTERFACE_NAME})
+    add_library(STTSERVER_WORKSPACE_CONFIG::MemorySanitizerInterface ALIAS ${SANITIZER_MEMORY_INTERFACE_NAME})
 
     if(COMPILER_HAS_MEMSAN_NOT_MSVC)
         target_compile_options(${SANITIZER_MEMORY_INTERFACE_NAME} INTERFACE -fno-omit-frame-pointer -fsanitize=memory)
@@ -76,22 +76,22 @@ if(NOT TARGET WORKSPACE_CONFIG::MemorySanitizerInterface)
 endif()
 
 macro(DECLARE_OPTIONAL_INTERFACE_LIBRARY_DIFFERENT_SANITIZERS)
-    if(NOT TARGET WORKSPACE_CONFIG::Sanitizers)
+    if(NOT TARGET STTSERVER_WORKSPACE_CONFIG::Sanitizers)
         add_library(${SANITIZER_AGGREGATE_INTERFACE_NAME} INTERFACE)
-        add_library(WORKSPACE_CONFIG::Sanitizers ALIAS ${SANITIZER_AGGREGATE_INTERFACE_NAME})
+        add_library(STTSERVER_WORKSPACE_CONFIG::Sanitizers ALIAS ${SANITIZER_AGGREGATE_INTERFACE_NAME})
 
         target_link_libraries(${SANITIZER_AGGREGATE_INTERFACE_NAME} INTERFACE 
-            $<$<BOOL:${STTSERVER_ENABLE_SANITIZER_ADDRESS}>:WORKSPACE_CONFIG::AddressSanitizerInterface>
-            $<$<BOOL:${STTSERVER_ENABLE_SANITIZER_UNDEFINED}>:WORKSPACE_CONFIG::UBSanInterface>
-            $<$<BOOL:${STTSERVER_ENABLE_SANITIZER_MEMORY}>:WORKSPACE_CONFIG::MemorySanitizerInterface>
+            $<$<BOOL:${STTSERVER_ENABLE_SANITIZER_ADDRESS}>:STTSERVER_WORKSPACE_CONFIG::AddressSanitizerInterface>
+            $<$<BOOL:${STTSERVER_ENABLE_SANITIZER_UNDEFINED}>:STTSERVER_WORKSPACE_CONFIG::UBSanInterface>
+            $<$<BOOL:${STTSERVER_ENABLE_SANITIZER_MEMORY}>:STTSERVER_WORKSPACE_CONFIG::MemorySanitizerInterface>
         )
     endif()
 endmacro()
 
 macro(DECLARE_OPTIONAL_INTERFACE_LIBRARY_LTO)
-    if(NOT TARGET WORKSPACE_CONFIG::LTO)
+    if(NOT TARGET STTSERVER_WORKSPACE_CONFIG::LTO)
         add_library(${LINK_TIME_OPT_INTERFACE_NAME} INTERFACE)
-        add_library(WORKSPACE_CONFIG::LTO ALIAS ${LINK_TIME_OPT_INTERFACE_NAME})
+        add_library(STTSERVER_WORKSPACE_CONFIG::LTO ALIAS ${LINK_TIME_OPT_INTERFACE_NAME})
 
         set_target_properties(${LINK_TIME_OPT_INTERFACE_NAME} PROPERTIES 
             INTERFACE_INTERPROCEDURAL_OPTIMIZATION "$<AND:$<BOOL:${ENABLE_LINK_TIME_OPTIMIZATION}>,$<BOOL:${LTO_SUPPORT_CHECK_RESULT}>>"
@@ -103,9 +103,9 @@ macro(DECLARE_OPTIONAL_INTERFACE_LIBRARY_LTO)
 endmacro()
 
 macro(DECLARE_OPTIONAL_INTERFACE_DEFAULT_PROJECT_CONFIGURATION)
-    if(NOT TARGET WORKSPACE_CONFIG::ProjectDefaultConfig)
+    if(NOT TARGET STTSERVER_WORKSPACE_CONFIG::ProjectDefaultConfig)
         add_library(${PROJECT_CONFIG_INTERFACE_NAME} INTERFACE)
-        add_library(WORKSPACE_CONFIG::ProjectDefaultConfig ALIAS ${PROJECT_CONFIG_INTERFACE_NAME})
+        add_library(STTSERVER_WORKSPACE_CONFIG::ProjectDefaultConfig ALIAS ${PROJECT_CONFIG_INTERFACE_NAME})
         
         set(GCC_CLANG_WARNINGS
             -Wall 
@@ -145,8 +145,8 @@ macro(DECLARE_OPTIONAL_INTERFACE_DEFAULT_PROJECT_CONFIGURATION)
         set(IS_C $<COMPILE_LANGUAGE:C>)
 
         target_link_libraries(${PROJECT_CONFIG_INTERFACE_NAME} INTERFACE
-            WORKSPACE_CONFIG::Sanitizers
-            WORKSPACE_CONFIG::LTO
+            STTSERVER_WORKSPACE_CONFIG::Sanitizers
+            STTSERVER_WORKSPACE_CONFIG::LTO
         )
 
         target_compile_options(${PROJECT_CONFIG_INTERFACE_NAME} INTERFACE
