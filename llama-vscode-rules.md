@@ -8,7 +8,7 @@
 ## Tech Stack (Inferred from sttserv / feature-ptt)
 
 - **Target Project**: Speech-to-Text Server (`sttserv`)
-- **Active Feature**: Push-to-Talk (`feature-ptt`)
+- **Active Feature**: Push-to-Talk (`feature-multimodel`)
 - **Dependencies**  
   - miniaudio
   - whispercpp
