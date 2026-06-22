@@ -403,7 +403,7 @@ void AudioManager2::destroy()
     device_config.periodSizeInMilliseconds = k_optimal_latency_btwn_audio_req_ms;
     device_config.pUserData                = mk_userControlledPointer;
     device_config.performanceProfile       = ma_performance_profile_low_latency;
-
+    device_config.periods = 3;
 
     // Initialize the audio devices
 	status = ma_device_init(m_ctx, &device_config, m_audioDev);

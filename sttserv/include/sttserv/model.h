@@ -1,4 +1,5 @@
-#pragma once
+#ifndef __LLM_ASR_MODEL_UNIFIED_INTERFACE_DEFINITION_HEADER__
+#define __LLM_ASR_MODEL_UNIFIED_INTERFACE_DEFINITION_HEADER__
 #include <sttserv/sttserver_api.h>
 #include <sttserv/sttserver_extern.h>
 #include <util2/C/base_type.h>
@@ -45,3 +46,6 @@ STTSERVER_API bool transcribe(BackendTranscriptionResult* outResult);
 
 
 STTSERVER_EXTERNC_DECL_END
+
+
+#endif /* __LLM_ASR_MODEL_UNIFIED_INTERFACE_DEFINITION_HEADER__ */
