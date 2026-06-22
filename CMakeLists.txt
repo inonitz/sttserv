@@ -23,16 +23,16 @@ define_aggregate_output_artifact_directory()
 update_submodules_on_cmake_configure("dependencies")
 
 # 2. Workspace/Project-Wide Options
-OPTION(STTSERVER_FORCE_COLOURED_OUTPUT         "Always produce ANSI-colored output (GNU/Clang only) (Platform Agnostic)"            ON)
-OPTION(STTSERVER_ENABLE_SANITIZER_ADDRESS      "Enable AddressSanitizer"                                                            OFF)
-OPTION(STTSERVER_ENABLE_SANITIZER_UNDEFINED    "Enable UndefinedBehaviorSanitizer"                                                  OFF)
-OPTION(STTSERVER_ENABLE_SANITIZER_MEMORY       "Enable MemorySanitizer"                                                             OFF)
-OPTION(STTSERVER_ENABLE_LINK_TIME_OPTIMIZATION "Enable Link-Time/Interprocedural Optimization (LTO/IPO)"                            OFF)
-OPTION(STTSERVER_ENABLE_TRACY_PROFILING        "Enable Code-paths for the Tracy Profiler"                                           OFF)
-OPTION(STTSERVER_BUILD_BACKEND_WHISPER         "Build the server with the master branch of https://github.com/ggml-org/whisper.cpp" OFF)
-OPTION(STTSERVER_BUILD_BACKEND_PARAKEET        "Build the server with the feature-parakeet branch"                                  OFF)
-OPTION(STTSERVER_BUILD_BACKEND_SHERPA_ONNX     "Build the server with the sherpa-onnx"                                              OFF)
-OPTION(STTSERVER_BUILD_EXECUTABLE              "Build The actual Speech-To-Text [ASR] Server"                                       OFF)
+OPTION(STTSERVER_FORCE_COLOURED_OUTPUT             "Always produce ANSI-colored output (GNU/Clang only) (Platform Agnostic)"            ON)
+OPTION(STTSERVER_ENABLE_SANITIZER_ADDRESS          "Enable AddressSanitizer"                                                            OFF)
+OPTION(STTSERVER_ENABLE_SANITIZER_UNDEFINED        "Enable UndefinedBehaviorSanitizer"                                                  OFF)
+OPTION(STTSERVER_ENABLE_SANITIZER_MEMORY           "Enable MemorySanitizer"                                                             OFF)
+OPTION(STTSERVER_ENABLE_LINK_TIME_OPTIMIZATION     "Enable Link-Time/Interprocedural Optimization (LTO/IPO)"                            OFF)
+OPTION(STTSERVER_ENABLE_TRACY_PROFILING            "Enable Code-paths for the Tracy Profiler"                                           OFF)
+OPTION(STTSERVER_BUILD_LIBRARY_BACKEND_WHISPER     "Build the server with the master branch of https://github.com/ggml-org/whisper.cpp" OFF)
+OPTION(STTSERVER_BUILD_LIBRARY_BACKEND_PARAKEET    "Build the server with the feature-parakeet branch"                                  OFF)
+OPTION(STTSERVER_BUILD_LIBRARY_BACKEND_SHERPA_ONNX "Build the server with the sherpa-onnx"                                              OFF)
+OPTION(STTSERVER_BUILD_LIBRARY                     "Build The actual Speech-To-Text [ASR] Server"                                       OFF)
 
 # Automatically toggle OFF when included as a submodule
 OPTION(STTSERVER_BUILD_TESTS                   "Testing Correct functionality of the project"                      ${STTSERVER_IS_TOP_LEVEL})
@@ -43,7 +43,12 @@ if(STTSERVER_ENABLE_SANITIZER_ADDRESS AND STTSERVER_ENABLE_SANITIZER_MEMORY)
     message(FATAL_ERROR "ASan and MSan are mutually exclusive. Please choose only one\n")
 endif()
 
-if(NOT STTSERVER_BUILD_BACKEND_WHISPER AND NOT STTSERVER_BUILD_BACKEND_PARAKEET AND NOT STTSERVER_BUILD_BACKEND_SHERPA_ONNX)
+if(NOT STTSERVER_BUILD_LIBRARY_BACKEND_WHISPER 
+    AND 
+    NOT STTSERVER_BUILD_LIBRARY_BACKEND_PARAKEET 
+    AND 
+    NOT STTSERVER_BUILD_LIBRARY_BACKEND_SHERPA_ONNX
+)
     message(FATAL_ERROR "Must Select Atleast 1 Backend to build the project with")
 endif()
 
@@ -76,10 +81,10 @@ if(STTSERVER_ENABLE_LINK_TIME_OPTIMIZATION)
 endif()
 
 # 5. Print Enabled/Disabled Flags For Verbose Diagnostics
-if(STTSERVER_BUILD_BACKEND_WHISPER OR STTSERVER_BUILD_BACKEND_PARAKEET)
+if(STTSERVER_BUILD_LIBRARY_BACKEND_WHISPER OR STTSERVER_BUILD_LIBRARY_BACKEND_PARAKEET)
     setup_whisper_backend_defaults()
 endif()
-if(STTSERVER_BUILD_BACKEND_SHERPA_ONNX)
+if(STTSERVER_BUILD_LIBRARY_BACKEND_SHERPA_ONNX)
     setup_sherpa_onnx_backend_defaults()
 endif()
 print_all_workspace_flags_and_vars()
@@ -92,18 +97,18 @@ if(STTSERVER_ENABLE_TRACY_PROFILING)
     add_subdirectory(dependencies/tracy)
 endif()
 
-if(STTSERVER_BUILD_BACKEND_WHISPER)
-    message(STATUS "[STTSERVER_BUILD_BACKEND_WHISPER] Building with backend whisper.cpp (master branch)")
+if(STTSERVER_BUILD_LIBRARY_BACKEND_WHISPER)
+    message(STATUS "[STTSERVER_BUILD_LIBRARY_BACKEND_WHISPER] Building with backend whisper.cpp (master branch)")
     add_subdirectory(dependencies/whispercpp)
 endif()
 
-if(STTSERVER_BUILD_BACKEND_PARAKEET)
-    message(STATUS "[STTSERVER_BUILD_BACKEND_PARAKEET] Building with backend whisper.cpp (parakeet feature-branch [dan-bev])")
+if(STTSERVER_BUILD_LIBRARY_BACKEND_PARAKEET)
+    message(STATUS "[STTSERVER_BUILD_LIBRARY_BACKEND_PARAKEET] Building with backend whisper.cpp (parakeet feature-branch [dan-bev])")
     add_subdirectory(dependencies/parakeetcpp)
 endif()
 
-if(STTSERVER_BUILD_BACKEND_SHERPA_ONNX)
-    message(STATUS "[STTSERVER_BUILD_BACKEND_SHERPA_ONNX] Building with backend sherpa-onnx")
+if(STTSERVER_BUILD_LIBRARY_BACKEND_SHERPA_ONNX)
+    message(STATUS "[STTSERVER_BUILD_LIBRARY_BACKEND_SHERPA_ONNX] Building with backend sherpa-onnx")
     add_subdirectory(dependencies/sherpa-onnx)
 endif()
 
@@ -111,7 +116,7 @@ add_subdirectory(dependencies/cxxopts)
 add_subdirectory(dependencies/miniaudio)
 add_subdirectory(dependencies/util2)
 
-if(STTSERVER_BUILD_EXECUTABLE)
+if(STTSERVER_BUILD_LIBRARY)
     add_subdirectory(sttserv)
 endif()
 
