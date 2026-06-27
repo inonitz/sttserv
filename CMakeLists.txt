@@ -30,7 +30,7 @@ OPTION(STTSERVER_ENABLE_SANITIZER_ADDRESS          "Enable AddressSanitizer"    
 OPTION(STTSERVER_ENABLE_SANITIZER_UNDEFINED        "Enable UndefinedBehaviorSanitizer"                                                  OFF)
 OPTION(STTSERVER_ENABLE_SANITIZER_MEMORY           "Enable MemorySanitizer"                                                             OFF)
 OPTION(STTSERVER_ENABLE_LINK_TIME_OPTIMIZATION     "Enable Link-Time/Interprocedural Optimization (LTO/IPO)"                            OFF)
-OPTION(STTSERVER_ENABLE_TRACY_PROFILING            "Enable Code-paths for the Tracy Profiler"                                           OFF)
+# OPTION(STTSERVER_ENABLE_TRACY_PROFILING            "Enable Code-paths for the Tracy Profiler"                                           OFF)
 OPTION(STTSERVER_BUILD_LIBRARY_BACKEND_WHISPER     "Build the server with the master branch of https://github.com/ggml-org/whisper.cpp" OFF)
 OPTION(STTSERVER_BUILD_LIBRARY_BACKEND_SHERPA_ONNX "Build the server with the sherpa-onnx"                                              OFF)
 OPTION(STTSERVER_BUILD_LIBRARY                     "Build The actual Speech-To-Text [ASR] Server"                                       OFF)
@@ -56,9 +56,9 @@ enable_coloured_diagnostics_if_available()
 
 
 # 4.1 Dependency fetch
-if(STTSERVER_ENABLE_TRACY_PROFILING)
-    safe_cpm_add_package(NAME tracy SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dependencies/tracy")
-endif()
+# if(STTSERVER_ENABLE_TRACY_PROFILING)
+#     safe_cpm_add_package(NAME tracy SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dependencies/tracy")
+# endif()
 if(STTSERVER_BUILD_LIBRARY_BACKEND_WHISPER)
     setup_whisper_backend_defaults()
     safe_cpm_add_package(NAME whispercpp SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dependencies/whispercpp")
