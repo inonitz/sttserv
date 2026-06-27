@@ -51,8 +51,11 @@ bool ModelBackend::create(const CommandLineArguments& args, BackendType backend_
         return init_sherpa_impl(this, args);
         break;
 #endif
-        default: return false;
+        default: 
+        return false;
+        break;
     }
+    return false;
 }
 
 void ModelBackend::destroy() {

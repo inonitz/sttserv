@@ -73,8 +73,58 @@ add_asr_accuracy_test(parakeet-v3-f32-whisper-backend
     --playbackid=0
 )
 
+add_asr_accuracy_test(parakeet-v3-f16-whisper-backend
+    --model=../../../../dependencies/models/nvidia--parakeet-tdt-0.6b-v3/ggml-parakeet-tdt-0.6b-v3-f16.bin
+    --backend=whisper-parakeet
+    --fa
+    --gid=1
+    --threads=2
+    --captureid=1
+    --playbackid=0
+)
+
+add_asr_accuracy_test(parakeet-v3-q8-whisper-backend
+    --model=../../../../dependencies/models/nvidia--parakeet-tdt-0.6b-v3/ggml-parakeet-tdt-0.6b-v3-q8_0.bin
+    --backend=whisper-parakeet
+    --fa
+    --gid=1
+    --threads=2
+    --captureid=1
+    --playbackid=0
+)
+
+add_asr_accuracy_test(parakeet-v3-q4-whisper-backend
+    --model=../../../../dependencies/models/nvidia--parakeet-tdt-0.6b-v3/ggml-parakeet-tdt-0.6b-v3-q4_k.bin
+    --backend=whisper-parakeet
+    --fa
+    --gid=1
+    --threads=2
+    --captureid=1
+    --playbackid=0
+)
+
 add_asr_accuracy_test(distil-whisper-large-v3.5
     --model=../../../../dependencies/models/distil-whisper-large-v3.5/ggml-model-q5k.bin
+    --backend=whisper-whisper
+    --fa
+    --threads=1
+    --gid=1
+    --captureid=1
+    --playbackid=0
+)
+
+# add_asr_accuracy_test(faster-distil-whisper-large-v3.5-int8
+#     --model=../../../../dependencies/models/faster-distil-whisper-large-v3.5-int8/model.bin
+#     --backend=whisper-whisper
+#     --fa
+#     --threads=1
+#     --gid=1
+#     --captureid=1
+#     --playbackid=0
+# )
+
+add_asr_accuracy_test(whisper-large-v3-turbo-q4-k
+    --model=../../../../dependencies/models/xviers-whisper-large-v3-turbo-gguf/whisper-large-v3-turbo-q4_k.gguf
     --backend=whisper-whisper
     --fa
     --threads=1

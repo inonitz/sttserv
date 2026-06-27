@@ -51,7 +51,7 @@ void ASRModelTest::TearDownTestSuite() {
 
 
     std::vector<f32>                allAccuracy;
-    std::array<std::vector<f32>, 5> perSentAccuracy;
+    std::array<std::vector<f32>, 5> sentenceAccuracy;
     u16 testsPassed = 0;
     u16 testsTotal  = 0;
     f32 min_val  = 0;
@@ -62,7 +62,7 @@ void ASRModelTest::TearDownTestSuite() {
 
     for (auto const& m : s_stats) {
         allAccuracy.push_back(m.accuracy);
-        perSentAccuracy[static_cast<size_t>(m.sentence_idx)].push_back(m.accuracy);
+        sentenceAccuracy[static_cast<size_t>(m.sentence_idx)].push_back(m.accuracy);
         testsPassed += m.passed;
         ++testsTotal;
     }
@@ -79,23 +79,29 @@ void ASRModelTest::TearDownTestSuite() {
     util2_fprintf(stdout, "==================================================\n");
     // util2_fprintf(stderr, "Model %s\n", sh_backend->);
     util2_fprintf(stdout, "Global Stats across %zu files:\n", allAccuracy.size());
-    util2_fprintf(stdout, "  Tests Passed:  %u/%u\n", testsPassed, testsTotal);
-    util2_fprintf(stdout, "  Min Accuracy:  %3.2f%%\n", min_val);
-    util2_fprintf(stdout, "  Median (p50):  %3.2f%%\n", median);
-    util2_fprintf(stdout, "  p99 Latency:   %3.2f%%\n", p99);
-    util2_fprintf(stdout, "  p99.9 Latency: %3.2f%%\n", p999);
-    util2_fprintf(stdout, "  Max Accuracy:  %3.2f%%\n", max_val);
+    util2_fprintf(stdout, "  Tests Passed:  %u/%u (%3.3f%%)\n", 
+        testsPassed, 
+        testsTotal, 
+        static_cast<f32>(testsPassed) / static_cast<f32>(testsTotal)
+    );
+    util2_fprintf(stdout, "  Accuracy\n");
+    util2_fprintf(stdout, "    Min:   %3.2f%%\n", min_val);
+    util2_fprintf(stdout, "    p50:   %3.2f%%\n", median);
+    util2_fprintf(stdout, "    p99:   %3.2f%%\n", p99);
+    util2_fprintf(stdout, "    p99.9: %3.2f%%\n", p999);
+    util2_fprintf(stdout, "    Max:   %3.2f%%\n", max_val);
     util2_fprintf(stdout, "--------------------------------------------------\n");
-    util2_fprintf(stdout, "Per-Sentence Median Accuracies:\n");
+    util2_fprintf(stdout, "Per-Sentence Median & Min Accuracies:\n");
 
-    for (u32 i = 0; i < perSentAccuracy.size(); ++i) {
-        auto& accAt = perSentAccuracy[i];
+    for (u32 i = 0; i < sentenceAccuracy.size(); ++i) {
+        auto& accAt = sentenceAccuracy[i];
         std::sort(accAt.begin(), accAt.end());
         f32 sent_median = get_percentile(accAt, 0.50f);
         util2_fprintf(stdout, 
-            "  Sentence [%2u]: Median Accuracy = %3.2f%% (across %zu variations)\n", 
+            "  Sentence [%2u]: p50=%3.2f%%, min=%3.2f%% (across %zu variations)\n", 
             i, 
             sent_median,
+            accAt[0], /* Sorted buffer is in ascending order. Min will be @start */
             accAt.size()
         );
     }
