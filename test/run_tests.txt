@@ -1,0 +1,17 @@
+cd build/release/static
+cd build/release/shared
+ninja -t targets | grep run
+ninja run_${TargetName}
+
+
+
+Current Target list:
+run_distil-whisper-large-v3.5
+run_parakeet-v3-f16-whisper-backend
+run_parakeet-v3-f32-whisper-backend
+run_parakeet-v3-q4-whisper-backend
+run_parakeet-v3-q8-whisper-backend
+run_sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-fp16
+run_sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8
+run_sherpa-onnx-nemo-parakeet-unified-en-0.6b-int8-non-streaming
+run_whisper-large-v3-turbo-q4-k
