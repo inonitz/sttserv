@@ -27,8 +27,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     cxxopts::cxxopts
     GTest::gtest
     STTSERVER::SpeechToTextServer
-    WORKSPACE_CONFIG::ProjectDefaultConfig
-    WORKSPACE_CONFIG::Sanitizers
+    STTSERVER_WORKSPACE_CONFIG::ProjectDefaultConfig
 )
 
 

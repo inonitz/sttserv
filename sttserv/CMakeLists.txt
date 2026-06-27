@@ -65,7 +65,7 @@ target_compile_features(${PROJECT_NAME} PRIVATE
     cxx_std_17
 )
 target_link_libraries(${PROJECT_NAME} PUBLIC 
-    WORKSPACE_CONFIG::ProjectDefaultConfig
+    STTSERVER_WORKSPACE_CONFIG::ProjectDefaultConfig
     ${RUNTIME_BACKEND_LIBRARY_NAME}
     miniaudio
     UTIL2::util2
