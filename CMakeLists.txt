@@ -34,10 +34,9 @@ OPTION(STTSERVER_ENABLE_TRACY_PROFILING            "Enable Code-paths for the Tr
 OPTION(STTSERVER_BUILD_LIBRARY_BACKEND_WHISPER     "Build the server with the master branch of https://github.com/ggml-org/whisper.cpp" OFF)
 OPTION(STTSERVER_BUILD_LIBRARY_BACKEND_SHERPA_ONNX "Build the server with the sherpa-onnx"                                              OFF)
 OPTION(STTSERVER_BUILD_LIBRARY                     "Build The actual Speech-To-Text [ASR] Server"                                       OFF)
-
 # Automatically toggle OFF when included as a submodule
-OPTION(STTSERVER_BUILD_TESTS                   "Testing Correct functionality of the project"                      ${STTSERVER_IS_TOP_LEVEL})
-OPTION(STTSERVER_BUILD_BENCHMARKS              "Testing Performance/Accuracy Metrics The project needs to achieve" ${STTSERVER_IS_TOP_LEVEL})
+OPTION(STTSERVER_BUILD_TESTS                       "Testing Correct functionality of the project"                      ${STTSERVER_IS_TOP_LEVEL})
+OPTION(STTSERVER_BUILD_BENCHMARKS                  "Testing Performance/Accuracy Metrics The project needs to achieve" ${STTSERVER_IS_TOP_LEVEL})
 
 # Early error conditions
 if(STTSERVER_ENABLE_SANITIZER_ADDRESS AND STTSERVER_ENABLE_SANITIZER_MEMORY)
@@ -56,36 +55,27 @@ declare_optional_interface_default_project_configuration()
 enable_coloured_diagnostics_if_available()
 
 
-# 5. Print Enabled/Disabled Flags For Verbose Diagnostics
-if(STTSERVER_BUILD_LIBRARY_BACKEND_WHISPER)
-    setup_whisper_backend_defaults()
-endif()
-
-if(STTSERVER_BUILD_LIBRARY_BACKEND_SHERPA_ONNX)
-    setup_sherpa_onnx_backend_defaults()
-endif()
-
-print_all_workspace_flags_and_vars()
-
-# 6. Actual Start
+# 4.1 Dependency fetch
 if(STTSERVER_ENABLE_TRACY_PROFILING)
     safe_cpm_add_package(NAME tracy SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dependencies/tracy")
 endif()
 if(STTSERVER_BUILD_LIBRARY_BACKEND_WHISPER)
+    setup_whisper_backend_defaults()
     safe_cpm_add_package(NAME whispercpp SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dependencies/whispercpp")
 endif()
-if(STTSERVER_BUILD_LIBRARY_BACKEND_PARAKEET)
-    safe_cpm_add_package(NAME parakeetcpp SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dependencies/parakeetcpp")
-endif()
 if(STTSERVER_BUILD_LIBRARY_BACKEND_SHERPA_ONNX)
+    setup_sherpa_onnx_backend_defaults()
     safe_cpm_add_package(NAME sherpa-onnx SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dependencies/sherpa-onnx")
 endif()
-
 safe_cpm_add_package(NAME cxxopts   SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dependencies/cxxopts")
 safe_cpm_add_package(NAME miniaudio SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dependencies/miniaudio")
 safe_cpm_add_package(NAME util2     SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dependencies/util2")
 
+# 4.2 - Verbose Diagnostics to make sure that i'm not crazy
+print_all_workspace_flags_and_vars()
 
+
+# 5 - Actual Library
 if(STTSERVER_BUILD_LIBRARY AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/sttserv")
     add_subdirectory(sttserv)
 endif()
