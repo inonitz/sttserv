@@ -79,7 +79,12 @@ void ModelBackend::destroy() {
     m_internalState = nullptr;
 }
 
-bool ModelBackend::transcribe(const f32* pcm, size_t frames, u32 duration_ms, u32 sample_rate) {
+bool ModelBackend::transcribe(
+    const f32*   pcm, 
+    size_t       frames, 
+    u32          duration_ms, 
+    __unused u32 sample_rate
+) {
     switch (m_type) {
 #ifdef STTSERVER_BUILD_LIBRARY_BACKEND_WHISPER
         case BackendType::WHISPER:
