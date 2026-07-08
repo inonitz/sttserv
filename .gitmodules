@@ -29,10 +29,6 @@
 	path = dependencies/util2
 	url = https://github.com/inonitz/util2
 	branch = main
-[submodule "dependencies/whispercpp"]
-	path = dependencies/whispercpp
-	url = https://github.com/ggml-org/whisper.cpp
-	branch = master
 [submodule "dependencies/miniaudio"]
 	path = dependencies/miniaudio
 	url = https://github.com/mackron/miniaudio
