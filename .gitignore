@@ -39,3 +39,6 @@ Makefile
 
 # misc
 imgui.ini
+
+# ASR benchmark run logs — contain transcripts + speaker labels, never commit
+bench_out/

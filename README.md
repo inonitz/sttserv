@@ -6,10 +6,10 @@
 <!-- PROJECT LOGO -->
 <div align="center">
 
-<h3 align="center">STT-HE</h3>
+<h3 align="center">STT-HE (sttserv)</h3>
 
   <p align="center">
-    Speech To Text Synthesis From Hebrew -> Hebrew
+    Low-latency Speech-To-Text server in C++, for local and embedded use
   </p>
 
 </div>
@@ -17,284 +17,245 @@
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
-This is a **(WIP)** Low-Latency Speech-To-Text Server in C++, using  
-already available Machine Learning Solutions such as [whisper.cpp](https://github.com/ggml-org/whisper.cpp)**/**[faster-whisper](https://github.com/SYSTRAN/faster-whisper) with their [CTranslate2](https://github.com/OpenNMT/CTranslate2) Engine  
+`sttserv` is a low-latency Speech-To-Text (ASR) library and server written in C++. It wraps existing
+ML inference engines behind one backend interface, so the same capture and transcription code runs on
+top of different model runtimes.
 
-The Goal of this project is to enable Hebrew->Hebrew Translation, making EVERYTHING as fast as feasibly possible for local/Embedded use
+Backends available today:
+
+* **whisper** — the [whisper.cpp](https://github.com/ggml-org/whisper.cpp) / ggml stack. This backend
+  serves two model families through one runtime: classic Whisper models, and NVIDIA
+  **Parakeet TDT** models converted to ggml. Runs on Vulkan, CUDA, Metal, or CPU depending on how ggml
+  is configured.
+* **sherpa-onnx** — the [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) runtime (ONNX Runtime).
+  Off by default; enable it for the NeMo / sherpa model targets.
+
+The original goal was Hebrew speech-to-text, but nothing in the library is language-specific — the
+language is a property of the model you load. The design target is to make the capture → transcription
+path as fast as feasible for local and embedded deployment.
 
 <br></br>
 
 ### Project Structure
 
-The project has the same structure as my other project [tree](https://github.com/inonitz/tree), except...  
+```
+sttserv/          the library + server target (public headers in sttserv/include/sttserv/)
+test/             GoogleTest accuracy/functionality harness (asr_test.cpp)
+benchmark/        GoogleBenchmark performance targets
+sandbox/          Python scratch space for prototyping / measurement
+cmake/            workspace CMake modules (CPM, output dirs, diagnostics, ...)
+dependencies/     vendored submodules fetched via CPM (whispercpp, sherpa-onnx, util2, ...)
+build.sh / build.ps1    convenience build wrappers (Linux / Windows)
+bench.sh                ASR model accuracy+latency sweep (see Benchmarks below)
+```
 
-* Sandbox Mostly contains code for Work In Progress, mainly python code for benchmarking/testing new ideas
-* `sttserv/` is the server library/executable  
+Dependencies are pulled through CPM (`safe_cpm_add_package`) from `dependencies/`. Model files and
+recordings live under `dependencies/models/` and `dependencies/recordings/` and are git-ignored.
 
 <br></br>
-
 
 <!-- GETTING STARTED -->
 ## Getting Started
 
+This project uses the same CMake workspace layout as the wider drone/perception project it was borrowed
+from — CPM for dependencies, `build.sh` / `build.ps1` wrappers, out-of-source builds under `build/`.
+If you have built that project, this will feel identical.
+
 ### Prerequisites
 
-* CMake
-* Working compiler toolchain, preferably clang  
-  Windows: You should use [llvm](https://github.com/llvm/llvm-project/releases)  
-  Linux:  
-    1. [installing-specific-llvm-version](https://askubuntu.com/questions/1508260/how-do-i-install-clang-18-on-ubuntu)
-    2. [configuring-symlinks](https://unix.stackexchange.com/questions/596226/how-to-change-clang-10-llvm-10-etc-to-clang-llvm-etc)
-    3. **You Don't have to use LLVM, gcc works too**
+* CMake ≥ 3.16
+* A working C/C++ toolchain (clang preferred; gcc works)
+* Python 3 (only for the `sandbox/` prototyping scripts)
+* Ninja (the build wrappers generate Ninja)
+* Model files under `dependencies/models/` — ggml `.bin` for the whisper/parakeet backend, ONNX for
+  sherpa
 
-* Python 3 installed
-* ~6GiB of storage *(At Most!)* for the repository + local LLM's
+### Building
 
-### Building & (Maybe) Running
-
-For Running/Using the python Sandbox:  
-
-```sh
-git clone https://github.com/inonitz/sttserv --branch dev desired_folder_path_from_cwd
-cd desired_folder_path_from_cwd/sttserv
-cd sandbox
-./venv.sh # Setup Python Virtual Environment (Linux Shell)
-.\venv.ps1 # Setup Python Virtual Environment (Windows powershell)
-```
-
-For Building the Server itself:
-
-```sh
-git clone --recurse-submodules https://github.com/inonitz/sttserv --branch dev desired_folder_path_from_cwd
-cd desired_folder_path_from_cwd/sttserv
-```
-
-<br></br>
-
-## Everything Beyond This Point is currently Old & Irrelevant, will be updated in due time! :)
-
-#### Configuring The Server
-
-#### ***This Part Is From an old project but may still be useful when rewriting***
-
-Because This project is somewhat big and building manually is cumbersome,  
-I Wrote build scripts [build.sh](https://github.com/inonitz/tree/build.sh), [build.ps1](https://github.com/inonitz/tree/build.ps1) for Linux & Windows Respectively  
-
-**By Default, The project will try to build EVERYTHING** - If you do not want that,  
-add the following flags to your cmake invocation (Or If Building with the scripts, disable in your platforms' Script):
-
-* Project Specific:
-  * ``` -DENABLE_SANITIZER_ADDRESS=OFF ```
-  * ``` -DENABLE_SANITIZER_UNDEFINED=OFF ```
-  * ``` -DENABLE_SANITIZER_MEMORY=OFF ```
-  * ``` -DENABLE_LINK_TIME_OPTIMIZATION=OFF ```
-  * ``` -DTREELIB_BUILD_TESTS=OFF ```
-
-* Dependencies:
-  * ``` -DCMAKE_C_COMPILER=clang ```
-  * ``` -DCMAKE_CXX_COMPILER=clang++ ```
-  * ``` -DCMAKE_EXPORT_COMPILE_COMMANDS=1 ```
-  * ``` -DCMAKE_COLOR_DIAGNOSTICS=ON ```
-  * ``` -DBUILD_GMOCK=OFF ```
-  * ``` -DINSTALL_GTEST=OFF ```
-  * ``` -DBENCHMARK_ENABLE_INSTALL=OFF ```
-  * ``` -DBENCHMARK_INSTALL_DOCS=OFF ```
-  * ``` -DBENCHMARK_INSTALL_TOOLS=OFF ```
-  * ``` -DBENCHMARK_DOWNLOAD_DEPENDENCIES=OFF ```
-  * ``` -DBENCHMARK_ENABLE_TESTING=OFF ```
-  * ``` -DBENCHMARK_ENABLE_GTEST_TESTS=OFF ```
-  * ``` -DBENCHMARK_USE_BUNDLED_GTEST=OFF ```
-
-Windows:
-
-```sh
-.\build.ps1 -Help
-.\build.ps1 -BuildType release -LinkType shared -Action configure
-.\build.ps1 -BuildType release -LinkType shared -Action build
-.\build.ps1 -BuildType release -LinkType shared -Action test/benchmark
-```
-
-Linux:
+Use the wrapper. Its signature is `build.sh <build_type> <library_type> <action>`:
 
 ```sh
 ./build.sh --help
-./build.sh release static configure
-./build.sh release static build
-./build.sh release static test/benchmark
+./build.sh release static configure    # configure once (fetches submodules, runs CMake)
+./build.sh release static build        # compile
 ```
+
+* `build_type`   — `debug`, `release`, `release_dbginfo`, `debug_perf`, `release_perf`
+* `library_type` — `shared` (`.so`/`.dll`) or `static` (`.a`/`.lib`)
+* `action`       — `configure`, `build`, `cleanbuild`, `sandbox`, `debugsandbox`
+
+Windows is the same via PowerShell:
+
+```powershell
+.\build.ps1 -BuildType release -LinkType shared -Action configure
+.\build.ps1 -BuildType release -LinkType shared -Action build
+```
+
+Build output lands in `build/<build_type>/<library_type>/`.
+
+#### Choosing backends
+
+Backends and the top-level targets are CMake options (see `CMakeLists.txt`). At least one backend is
+required — configuring with none is a fatal error. The defaults baked into `build.sh` are:
+
+| Option | Default | Meaning |
+|---|---|---|
+| `STTSERVER_BUILD_LIBRARY_BACKEND_WHISPER` | `ON` | whisper.cpp / ggml backend (Whisper + Parakeet) |
+| `STTSERVER_BUILD_LIBRARY_BACKEND_SHERPA_ONNX` | `OFF` | sherpa-onnx (ONNX Runtime) backend |
+| `STTSERVER_BUILD_LIBRARY` | `ON` | build the actual server library |
+| `STTSERVER_BUILD_TESTS` | `ON` (top-level) | GoogleTest harness |
+| `STTSERVER_BUILD_BENCHMARKS` | `ON` (top-level) | GoogleBenchmark targets |
+
+ggml compute backend (Vulkan / CUDA / Metal / CPU) is selected with the usual `-DGGML_*` flags passed
+through at configure time; see the commented block in `build.sh` for a worked CUDA + Vulkan example.
 
 <br></br>
 
 <!-- USAGE EXAMPLES -->
 ## Usage
 
-### In Source Build
+### As a library (in-source / submodule)
 
-In your CMakeLists.txt:
+In your `CMakeLists.txt`:
 
-```sh
-add_subdirectory(your_directory/tree)
+```cmake
+add_subdirectory(path/to/sttserv)
+target_link_libraries(your_target PRIVATE STTSERVER::SpeechToTextServer)
 ```
 
-Also, Don't forget to link to the library:
+Public headers are under `sttserv/include/sttserv/` — `backend.hpp` (the transcription backend),
+`audio2.hpp` (capture / WAV), `async_key.hpp` (push-to-talk key hook), `cmdline.hpp`, and the exported
+C API in `sttserver_api.h`. The C API export macros (`STTSERVER_EXPORTS` / `STTSERVER_STATIC_DEFINE`)
+are set for you by the library target depending on shared vs static.
+
+As a submodule the workspace-level tests and benchmarks auto-disable, so you only pull in the library.
+
+### Running the transcription tests
+
+The accuracy harness (`test/asr_test.cpp`) builds one `run_<target>` per model. From the build dir:
 
 ```sh
-target_link_libraries(your_target_executable/library PRIVATE TREELIB::treelib)
+cd build/release/static
+ninja -t targets | grep run       # list the model targets
+ninja run_parakeet-v3-q4-whisper-backend
 ```
 
-### Out-Of-Source (Submodule/etc...) Build
-
-```sh
-git submodule add https://github.com/inonitz/tree your_dependency_folder/tree
-git submodule init
-git submodule update
-```
-
-In your CMakeLists.txt:
-
-```sh
-add_subdirectory(your_dependency_folder/tree)
-```
-
-Also, Don't forget to link to the library:
-
-```sh
-target_link_libraries(your_target_executable/library PRIVATE TREELIB::treelib)
-```
+The harness reads clips from `dependencies/recordings/`, transcribes each against a model, and verifies
+the output against `sentences.txt`. See `test/run_tests.txt` for the current target list.
 
 <br></br>
 
-## Roadmap/TODO
+## Roadmap / TODO
 
-* Optimize binaryTree::AVLDeleteIterative in AVLTreeGeneric.tpp, similarly to AVLInsertIterative in AVLTree.c
-* Add Automatic Testing Matrix For architecture/OS/Build Type (Shared/Dynamic/Static, Debug/Release, ...)  
-  * **(involves CI/CD Pipelines which I'm not very familiar with/not interested in currently)**
+* Aggregated test runner (currently each model target runs individually)
+* Automatic testing matrix across architecture / OS / build type
+* SNR-gated or confidence-gated preprocessing (see the denoise finding in Benchmarks)
 
 <br></br>
 
 <!-- CONTRIBUTING -->
 ## Contributing
 
-If you have a suggestion, please fork the repo and create a pull request. You can also simply open an issue with the tag "enhancement".  
+If you have a suggestion, fork the repo and open a pull request, or open an issue tagged "enhancement".
 
 <!-- LICENSE -->
 ## License
 
-Distributed under the MIT License. See `LICENSE` file for more information.
+Distributed under the MIT License. See the `LICENSE` file for more information.
 
 <br></br>
 
 <!-- Benchmarks -->
 ## Benchmarks
 
-### *A few notes before the graphs*
+### ASR model sweep — 2026-08-11
 
-**The following benchmarks were tested on my i7-8750H Laptop with 16GBx2 2666Mhz DDR4 Ram**  
+Which ASR model to ship for a real-time voice loop. Reproduce with `./bench.sh` from the workspace
+root (build the test targets first). Setup and full results follow.
 
-* Search, Deletion & Insertion were Tested on 6 Different Data Structures  
-  1. std::set (clang-18)  
-  2. std::unordered_map (clang-18)  
-  3. C Implementation of an AVL Tree  
-  4. C++ Implementation Of an Iterative AVL Tree  
-  5. C++ Implementation Of a Recursive AVL Tree  
-  6. C++ Implementation Of a 'Flat' Iterative AVL Tree, specifically:  
-      * Specialized Freelist Node-Allocator
-      * Reusing of freed nodes using a local Stack
-      * Metadata packing to 8 bytes, enabling a maximum of ~258 Million Elements  
-        This was done to reduce memory footprint, memory chasing & improve  
-        cache utilization
-  
-* Each Data Structure was specialized to 3 Base Types
-  1. u64 (trivial plain old data type)
-  2. DummyRecord (Multiple Cache-Lines in Size, but still POD)
-  3. std::string (Non-Trivial Type with complex construction, copying and destruction)
+**Setup.** Local box, GTX 1050 Ti (4 GB), whisper backend on Vulkan, flash-attention (`--fa`), GPU
+`gid 0`. The `accuracy_test` harness over **44 clips** = 5 sentences × ~9 noise variations
+(quiet / mid / noisy), four speakers (anonymized). Ground truth is `sentences.txt`. "Pass" = a
+clip transcribes above the harness accuracy threshold. The three sherpa-onnx NeMo targets were not
+built for this run (sherpa backend off) and are excluded.
 
-* Benchmarking was done concurrently to save time ([Approx ~5 Hours Serially](https://github.com/inonitz/tree/blob/master/scripts/iterations/3/test_benchmark_session_linux.txt))
+| Model | Backend | Size | Total (44) | Per-clip ms (min / med / max) | Pass | Acc p50 | Acc min |
+|---|---|---|---|---|---|---|---|
+| **parakeet-v3 q4_k** | whisper-parakeet | **397 MB** | **27 s** | 157 / **586** / 1460 | **37/44** | 95.1% | 37.8% |
+| parakeet-v3 q8_0 | whisper-parakeet | 638 MB | 25 s | 139 / 522 / 915 | 36/44 | 95.1% | 36.2% |
+| parakeet-v3 f16 | whisper-parakeet | 1.2 GB | 25 s | 146 / 510 / 900 | 36/44 | 95.1% | 36.2% |
+| parakeet-v3 f32 | whisper-parakeet | 2.4 GB | 27 s | 142 / 515 / 916 | 36/44 | 95.1% | 36.2% |
+| distil-whisper-large-v3.5 q5k | whisper-whisper | 513 MB | 329 s | 5850 / 6698 / 10389 | 33/44 | 95.1% | 39.5% |
+| whisper-large-v3-turbo q4_k | whisper-whisper | 453 MB | 313 s | 5737 / 6650 / 9846 | 33/44 | 94.0% | 63.0% |
 
-<!-- <img src="https://github.com/inonitz/tree/blob/master/scripts/iterations/3/plots/.svg"> -->
+**Winner: Parakeet TDT 0.6B v3, q4_k.** Fastest tier (median 0.59 s/clip), smallest footprint
+(397 MB — the most headroom when it shares a 4 GB GPU with a VLM), and the best pass rate (37/44).
+Accuracy is flat across the parakeet quant ladder (p50 95.1% identical f32 → q4), so quantization is
+free here; pick by size. The two whisper-large models are **~12× slower** for no accuracy gain — they
+only look more robust on min-accuracy because they drop fewer worst-case clips, but their latency
+disqualifies them for a real-time loop.
 
-### **Finally, the benchmarks!**
+### Denoise (GTCRN speech-enhancement) — does it help before Parakeet?
 
-#### Searching for a Node
+The 7 failing clips per parakeet run are the loud/noisy variations. The obvious idea is a denoise stage
+in front of the ASR. It was measured, not assumed.
 
-<img src="https://raw.githubusercontent.com/inonitz/tree/master/scripts/iterations/3/plots/plot_u64_Search.svg">
-<img src="https://raw.githubusercontent.com/inonitz/tree/master/scripts/iterations/3/plots/plot_DummyRecord_Search.svg">
-<img src="https://raw.githubusercontent.com/inonitz/tree/master/scripts/iterations/3/plots/plot_std_string_Search.svg">
+**Cost** (sherpa-onnx GTCRN, `gtcrn_simple.onnx`, 535 KB, CPU ONNX Runtime, RTF = proc / audio):
 
-#### Inserting Nodes
+| threads | proc med (ms) | RTF med |
+|---|---|---|
+| 1 | 507 | 0.075 |
+| 2 | 632 | 0.093 |
+| 4 | 692 | 0.101 |
 
-<img src="https://raw.githubusercontent.com/inonitz/tree/master/scripts/iterations/3/plots/plot_u64_Insertion.svg">
-<img src="https://raw.githubusercontent.com/inonitz/tree/master/scripts/iterations/3/plots/plot_DummyRecord_Insertion.svg">
-<img src="https://raw.githubusercontent.com/inonitz/tree/master/scripts/iterations/3/plots/plot_std_string_Insertion.svg">
+Cost is negligible — threads=1 is fastest (the model is too small to parallelize), ~0.5 s to denoise a
+~6.75 s utterance, 13× faster than realtime on one core.
 
-#### Deleting Nodes
+**Accuracy** (parakeet-q4_k on raw vs GTCRN-denoised, same 44 clips):
 
-<img src="https://raw.githubusercontent.com/inonitz/tree/master/scripts/iterations/3/plots/plot_u64_Deletion.svg">
-<img src="https://raw.githubusercontent.com/inonitz/tree/master/scripts/iterations/3/plots/plot_DummyRecord_Deletion.svg">
-<img src="https://raw.githubusercontent.com/inonitz/tree/master/scripts/iterations/3/plots/plot_std_string_Deletion.svg">
+| set | Pass | Acc p50 | Acc min |
+|---|---|---|---|
+| raw | 37/44 | 95.1% | 37.8% |
+| GTCRN denoised | 27/44 | 92.7% | 28.7% |
 
-## Conclusions/Lessons Learned
+**Denoise is net-negative.** It drops 10 previously-good clips and lowers both p50 and min; Sentence[0]
+p50 collapsed 87% → 38%. Whole-utterance speech enhancement shifts the audio distribution away from
+what Parakeet expects and over-processes the quiet/mid clips, while the genuinely loud fails are **not**
+rescued — GTCRN cannot recover speech that noise has already drowned.
 
-* Recursion is pretty good for small *N*, but gets out of hand pretty quickly
-* Looking at the benchmarks, I can confidently assume that FlatAVLTree had way better cache utilization,  
-  due to the spatial locality of the internal nodes being placed in a big buffer,  
-  as compared with the usual implementation requiring pointer chasing and using malloc/free/new/delete
-* Premature Optimization is *still* the root of all evil, but indeed a very convenient learning tool
-* Never assume **anything** until you benchmark it
-* The Standard Library folks **really do know what they're doing**
-* If you think a task will require an allocated Time *N*, it will probably take *2N*, if not more
-* Testing is required to ensure growing complexity in a system/project doesn't completely overwhelm and impede the rate of development,  
-  more formally known as [Lehmans' Law of Software Evolution](https://en.wikipedia.org/wiki/Lehman%27s_laws_of_software_evolution)  (literally just found this out now lol)
+**Verdict: ship parakeet-q4 on raw audio; do not blind-denoise.** Cost was never the problem; accuracy
+is. If preprocessing is revisited, gate on downstream ASR confidence (ask the speaker to repeat when
+confidence is low) rather than SNR, and evaluate a stronger enhancement model — as measured, GTCRN in
+front of the ASR hurts.
+
+### Footprint note
+
+Footprint matters because the ASR shares a 4 GB GPU with a VLM. Parakeet-q4 at 397 MB leaves the most
+KV headroom; q8_0 (638 MB) is the fallback if q4 ever misbehaves on field audio. The per-model logs
+from `bench.sh` hold transcript text and speaker labels, so they are git-ignored and never committed.
 
 <!-- ACKNOWLEDGEMENTS -->
 ## Acknowledgements
 
-* [GoogleBenchmark](https://github.com/google/benchmark)
-* [GoogleTest](https://google.github.io/googletest)
-* [CMocka](https://cmocka.org)
+* [whisper.cpp](https://github.com/ggml-org/whisper.cpp) / [ggml](https://github.com/ggml-org/ggml)
+* [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx)
+* [GoogleTest](https://google.github.io/googletest) / [GoogleBenchmark](https://github.com/google/benchmark)
 * [CMake](https://cmake.org/cmake/help/latest/guide/tutorial/index.html)
-* [Intrusive AVL Tree by Eric Biggers](https://github.com/ebiggers/avl_tree)
+* [Best-README-Template](https://github.com/othneildrew/Best-README-Template)
 
 <!-- References -->
 ## References
 
 * [Modern CMake](https://cliutils.gitlab.io/modern-cmake/README.html)
-* [Best-README](https://github.com/othneildrew/Best-README-Template)
-* [AVL Tree Playlist by William Fiset](https://youtube.com/playlist?list=PLDV1Zeh2NRsD06x59fxczdWLhDDszUHKt&si=N7kZmzkVAIHU4jjc)
-* [Jenny's Data Structures & Algorithm Course](https://youtube.com/playlist?list=PLdo5W4Nhv31bbKJzrsKfMpo_grxuLl8LU&si=UGaS5lt1SiFYFAN-)  
-  * In particular, her videos regarding AVL Tree Rotations
-* [W3Schools AVL Trees](https://www.w3schools.com/dsa/dsa_data_avltrees.php)
-* [Typed Tests (GoogleTest)](https://google.github.io/googletest/advanced.html#typed-tests)
 * [GoogleBenchmark User Guide](https://github.com/google/benchmark/blob/main/docs/user_guide.md)
-  * I found the following references most relevant:
-  * [Setup & Teardown](https://github.com/google/benchmark/blob/main/docs/user_guide.md#setupteardown)
-  * [Templates](https://github.com/google/benchmark/blob/main/docs/user_guide.md#templated-benchmarks)
-  * [Fixtures](https://github.com/google/benchmark/blob/main/docs/user_guide.md#Fixtures)
-  * [Custom Counters](https://github.com/google/benchmark/blob/main/docs/user_guide.md#custom-counters)
-  * [PauseTiming() & ResumeTiming()](https://github.com/google/benchmark/blob/main/docs/user_guide.md#controlling-timers)
-* [Tick Formatting in Matplotlib](https://matplotlib.org/stable/gallery/ticks/tick-formatters.html)
-* [Axis Ticks in Matplotlib](https://matplotlib.org/stable/users/explain/axes/axes_ticks.html)
-* [Pathlib Basic Usage](https://stackoverflow.com/a/35188296)
+* [Typed Tests (GoogleTest)](https://google.github.io/googletest/advanced.html#typed-tests)
 
 <!-- MARKDOWN LINKS & IMAGES -->
-<!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
-[contributors-shield]: https://img.shields.io/github/contributors/inonitz/tree?style=for-the-badge&color=blue
-[contributors-url]: https://github.com/inonitz/tree/graphs/contributors
-[forks-shield]: https://img.shields.io/github/forks/inonitz/tree?style=for-the-badge&color=blue
-[forks-url]: https://github.com/inonitz/tree/network/members
-[stars-shield]: https://img.shields.io/github/stars/inonitz/tree?style=for-the-badge&color=blue
-[stars-url]: https://github.com/inonitz/tree/stargazers
-[license-shield]: https://img.shields.io/github/license/inonitz/tree?style=for-the-badge
-[license-url]: https://github.com/inonitz/tree/blob/main/LICENSE
-
-<!-- [CMake-url]: https://cmake.org/cmake/help/latest/guide/tutorial/index.html
-[CMake.js]: https://gitlab.kitware.com/uploads/-/system/project/avatar/541/cmakelogo-centered.png?width=128
-
-[CMocka-url]: https://cmocka.org
-[CMocka.js]: https://avatars.githubusercontent.com/u/5657447?s=128&v=0
-
-[GoogleTest-url]: https://google.github.io/googletest
-[GoogleTest.js]: https://avatars.githubusercontent.com/u/1342004?s=128&v=4
-
-[GoogleBench-url]: https://github.com/google/benchmark
-[GoogleBench.js]: https://avatars.githubusercontent.com/u/1342004?s=128&v=4 -->
+[contributors-shield]: https://img.shields.io/github/contributors/inonitz/sttserv?style=for-the-badge&color=blue
+[contributors-url]: https://github.com/inonitz/sttserv/graphs/contributors
+[forks-shield]: https://img.shields.io/github/forks/inonitz/sttserv?style=for-the-badge&color=blue
+[forks-url]: https://github.com/inonitz/sttserv/network/members
+[stars-shield]: https://img.shields.io/github/stars/inonitz/sttserv?style=for-the-badge&color=blue
+[stars-url]: https://github.com/inonitz/sttserv/stargazers
+[license-shield]: https://img.shields.io/github/license/inonitz/sttserv?style=for-the-badge
+[license-url]: https://github.com/inonitz/sttserv/blob/main/LICENSE
