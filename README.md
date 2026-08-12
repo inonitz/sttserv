@@ -195,38 +195,53 @@ free here; pick by size. The two whisper-large models are **~12× slower** for n
 only look more robust on min-accuracy because they drop fewer worst-case clips, but their latency
 disqualifies them for a real-time loop.
 
-### Denoise (GTCRN speech-enhancement) — does it help before Parakeet?
+### Noise filtering — does any filter help before Parakeet?
 
-The 7 failing clips per parakeet run are the loud/noisy variations. The obvious idea is a denoise stage
-in front of the ASR. It was measured, not assumed.
+Most failing clips are the loud/noisy variations, so a denoise/filter stage in front of the ASR is the
+obvious idea. Three filters were measured against the same 44 clips, parakeet-q4_k, with raw as the
+baseline. None was assumed; every one was run through the full transcription harness.
 
-**Cost** (sherpa-onnx GTCRN, `gtcrn_simple.onnx`, 535 KB, CPU ONNX Runtime, RTF = proc / audio):
+| filter | type | Pass | acc mean | cf mean |
+|---|---|---|---|---|
+| **raw (no filter)** | — | **37/44** | **89.1%** | 0.965 |
+| GTCRN | neural speech-enhancement (sherpa-onnx, ONNX CPU) | 27/44 | 81.3% | 0.941 |
+| SpeexDSP | spectral noise suppression | 30/44 | 87.5% | 0.945 |
+| classical DSP | 300–3500 Hz band-pass + noise gate | 33/44 | 86.2% | 0.960 |
 
-| threads | proc med (ms) | RTF med |
-|---|---|---|
-| 1 | 507 | 0.075 |
-| 2 | 632 | 0.093 |
-| 4 | 692 | 0.101 |
+**Every filter is net-negative. Raw wins.** Detail:
 
-Cost is negligible — threads=1 is fastest (the model is too small to parallelize), ~0.5 s to denoise a
-~6.75 s utterance, 13× faster than realtime on one core.
+- **GTCRN** (neural, whole-utterance): worst of the three (−10 pass). It over-processes the quiet/mid
+  clips and cannot recover speech that noise has already drowned. Cost is negligible (RTF 0.075 at one
+  CPU thread, ~0.5 s per ~6.75 s clip, 13× faster than realtime) — accuracy is the problem, not speed.
+- **SpeexDSP**: uniformly gentle harm — it degraded 10 clips and improved **zero**. Best single gain
+  anywhere was +1.7%.
+- **Classical DSP** (band-pass + gate): the only filter that helped the target case — it improved three
+  genuinely-noisy clips by +4–5%. But it catastrophically broke two clips (−56% each, the gate clamping
+  on voiced frames or the band-pass discarding speech energy), which sinks its average below raw.
 
-**Accuracy** (parakeet-q4_k on raw vs GTCRN-denoised, same 44 clips):
+**Verdict: ship parakeet-q4 on raw audio; do not filter.** If filtering is ever revisited, the
+band-pass + gate direction is the only one that improved noisy speech — it needs a gate that will not
+clamp on voiced frames. Neural whole-utterance enhancement (GTCRN) and spectral suppression (SpeexDSP)
+both only hurt. Do **not** gate on SNR; if a quality signal is wanted, see confidence below.
 
-| set | Pass | Acc p50 | Acc min |
-|---|---|---|---|
-| raw | 37/44 | 95.1% | 37.8% |
-| GTCRN denoised | 27/44 | 92.7% | 28.7% |
+### Transcription confidence — does not track correctness
 
-**Denoise is net-negative.** It drops 10 previously-good clips and lowers both p50 and min; Sentence[0]
-p50 collapsed 87% → 38%. Whole-utterance speech enhancement shifts the audio distribution away from
-what Parakeet expects and over-processes the quiet/mid clips, while the genuinely loud fails are **not**
-rescued — GTCRN cannot recover speech that noise has already drowned.
+A per-utterance confidence (geometric mean of token probabilities) was tested as an "ask the speaker to
+repeat" gate. Two findings:
 
-**Verdict: ship parakeet-q4 on raw audio; do not blind-denoise.** Cost was never the problem; accuracy
-is. If preprocessing is revisited, gate on downstream ASR confidence (ask the speaker to repeat when
-confidence is low) rather than SNR, and evaluate a stronger enhancement model — as measured, GTCRN in
-front of the ASR hurts.
+- **Field caveat.** In the vendored Parakeet fork the `plog` field of `parakeet_token_data` holds the
+  raw pre-softmax **logit**, not `log(p)` as in upstream whisper.cpp. Use `.p` (the true softmax
+  probability); averaging `.plog` yields a meaningless, unbounded number. Blank tokens are never stored
+  in the token list (the decoder advances past them without emitting), so "non-empty token" filtering is
+  a no-op.
+- **The score does not correlate with correctness.** Across the 44 clips, passing transcriptions
+  averaged cf 0.964 (min 0.777) while *failing* ones averaged cf **0.971** (min 0.946) — the failures
+  scored higher. The model stays fluent and confident even when it mis-transcribes noisy audio. A 0.6
+  gate catches **zero** of the bad clips, and no threshold separates good from bad.
+
+**Verdict: token-probability confidence is not a usable accuracy filter.** Keep it only as an
+empty/garbage guard (near-zero score or empty string → retry), never as a "was this transcript correct"
+signal.
 
 ### Footprint note
 
