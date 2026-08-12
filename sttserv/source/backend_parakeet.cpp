@@ -64,3 +64,24 @@ bool results_parakeet_impl(void* ptr, inferenceResultBuffer& fixedSizeOutput) {
 
 void print_timings_parakeet_impl(void* ptr) { parakeet_print_timings(static_cast<ParakeetBackendState*>(ptr)->ctx); }
 void reset_timings_parakeet_impl(void* ptr) { parakeet_reset_timings(static_cast<ParakeetBackendState*>(ptr)->ctx); }
+
+
+// /* --- experiment-only: confidence over emitted (non-blank) tokens --- */
+// #include <cmath>
+// float confidence_parakeet_impl(void* ptr, int* out_ntok, float* out_meanp) {
+//     auto* state = static_cast<ParakeetBackendState*>(ptr);
+//     double logsum = 0.0, psum = 0.0; int cnt = 0;
+//     const int nseg = parakeet_full_n_segments(state->ctx);
+//     for (int s = 0; s < nseg; ++s) {
+//         const int nt = parakeet_full_n_tokens(state->ctx, s);
+//         for (int t = 0; t < nt; ++t, ++cnt) {
+//             float p = parakeet_full_get_token_data(state->ctx, s, t).p;
+//             double pc = p > 1e-9f ? static_cast<double>(p) : 1e-9;
+//             logsum += std::log(pc);
+//             psum   += pc;
+//         }
+//     }
+//     if (out_ntok)  *out_ntok  = cnt;
+//     if (out_meanp) *out_meanp = cnt == 0 ? 0.0f : static_cast<float>(psum / cnt);
+//     return cnt == 0 ? 0.0f : static_cast<float>(std::exp(logsum / static_cast<double>(cnt)));
+// }

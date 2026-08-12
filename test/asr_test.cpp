@@ -176,6 +176,14 @@ TEST_P(ASRModelTest, TranscribeAndVerify) {
     });
     
 
+    // {
+    //     int _ntok = 0; float _meanp = 0.0f;
+    //     extern float confidence_parakeet_impl(void*, int*, float*);
+    //     float _cf = confidence_parakeet_impl(sh_backend->m_internalState, &_ntok, &_meanp);
+    //     util2_fprintf(stderr, "CFDUMP file=%s acc=%.3f pass=%d geomean=%.4f meanp=%.4f ntok=%d\n",
+    //         param.filepath.c_str(), accuracy, (int)(accuracy>=threshold), _cf, _meanp, _ntok);
+    // }
+
     EXPECT_GE(accuracy, threshold);
     return;
 }
