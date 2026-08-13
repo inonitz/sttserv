@@ -15,6 +15,9 @@ struct AudioTestParam {
     std::string filepath;
     i32         sentence_idx;
     NoiseLevel  noise;
+    float       snr_db     = std::numeric_limits<float>::infinity(); // INF = clean, no mix
+    std::string noise_path;                                          // empty = no mix
+    float       noise_offset_sec = 0.0f;                             // vary which slice of the bed overlays
 };
 
 struct TestResultMetric {
@@ -22,6 +25,7 @@ struct TestResultMetric {
     bool  passed;
     bool  reserved[2];
     float accuracy;
+    float snr_db;   // INF for the un-mixed clips; finite for the SNR sweep
 };
 
 class ASRModelTest : public testing::TestWithParam<AudioTestParam> {

@@ -1,13 +1,16 @@
 #include "asr_test.hpp"
 #include <cmath>
 #include <string>
-#include <util2/C/print.h>
+#include <util2/C/print2.h>
 #include <miniaudio.h>
 #include <algorithm>
 #include <cctype>
 #include <regex>
 #include <filesystem>
 #include <fstream>
+#include <map>
+#include <limits>
+#include "snr_mix_core.h"
 
 
 namespace fs = std::filesystem;
@@ -15,6 +18,10 @@ namespace fs = std::filesystem;
 
 static constexpr const char*                kAudioFileDirectory = "../../../../dependencies/recordings";
 static const std::string                    kAudioFileSentences = "sentences.txt"; 
+// --- SNR robustness sweep: gunfire/explosion beds mixed into the clean clips ---
+static const std::string              kNoiseBedDir = "../../../../dependencies/noise_beds";
+static const std::vector<std::string> kNoiseBeds   = { "battle_0.wav", "battle_1.wav", "battle_2.wav", "battle_3.wav" }; // firefight, explosion, artillery, rifle
+static const std::vector<float>       kSnrGrid     = { 20,18,16,14,12,10,8,6,4,2,0,-2,-4,-6,-8,-10 };
 static std::vector<std::string>             gs_testSentences;
 std::unique_ptr<ModelBackend> ASRModelTest::sh_backend;
 std::vector<TestResultMetric> ASRModelTest::s_stats;
@@ -105,6 +112,26 @@ void ASRModelTest::TearDownTestSuite() {
             accAt.size()
         );
     }
+    /* ---- Accuracy-vs-SNR curve (the robustness deliverable) ---- */
+    std::map<int, std::vector<f32>> bySnr;
+    for (auto const& m : s_stats) {
+        if (std::isfinite(m.snr_db)) {
+            bySnr[static_cast<int>(std::lround(m.snr_db))].push_back(m.accuracy);
+        }
+    }
+    if (!bySnr.empty()) {
+        util2_fprintf(stdout, "--------------------------------------------------\n");
+        util2_fprintf(stdout, "Accuracy vs SNR (gunfire/explosion noise):\n");
+        util2_fprintf(stdout, "   SNR(dB)    n   mean_acc   median   pass>=75%%\n");
+        for (auto it = bySnr.rbegin(); it != bySnr.rend(); ++it) {   /* easy -> hard */
+            std::vector<f32> v = it->second;
+            std::sort(v.begin(), v.end());
+            double sum = 0; int pass = 0;
+            for (f32 a : v) { sum += a; if (a >= 75.0f) ++pass; }
+            util2_fprintf(stdout, "   %+5d   %4zu   %6.2f%%   %6.2f%%   %3d/%zu\n",
+                it->first, v.size(), sum / v.size(), get_percentile(v, 0.50f), pass, v.size());
+        }
+    }
     util2_fprintf(stdout, "==================================================\n\n");
     return;
 }
@@ -133,6 +160,27 @@ TEST_P(ASRModelTest, TranscribeAndVerify) {
         ASSERT_TRUE(false);
     }
     ASSERT_EQ(MA_SUCCESS, destroyAudioDecoder(&audioReader));
+
+
+    /* SNR robustness sweep: mix a gunfire/explosion bed into the clean speech */
+    if (std::isfinite(param.snr_db) && !param.noise_path.empty()) {
+        ma_decoder       noiseReader;
+        std::vector<f32> noiseData;
+        if (createAudioDecoder(param.noise_path, &noiseReader) != MA_SUCCESS) {
+            fprintf(stderr, "Noise bed open failed: %s\n", param.noise_path.c_str());
+            ASSERT_TRUE(false);
+        }
+        if (readToVector(&noiseReader, noiseData) != MA_SUCCESS) {
+            fprintf(stderr, "Noise bed read failed: %s\n", param.noise_path.c_str());
+            ASSERT_TRUE(false);
+        }
+        destroyAudioDecoder(&noiseReader);
+        std::vector<f32> mixed = snrmix::mix_at_snr(
+            audioData, CommandLineArguments::kInferenceSampleRate,
+            noiseData, CommandLineArguments::kInferenceSampleRate,
+            static_cast<double>(param.snr_db), static_cast<double>(param.noise_offset_sec));
+        if (!mixed.empty()) audioData.swap(mixed);
+    }
 
 
     /* Transcribe and get result */
@@ -172,7 +220,8 @@ TEST_P(ASRModelTest, TranscribeAndVerify) {
         __scast(i8, param.sentence_idx), 
         accuracy >= threshold,
         {},
-        accuracy
+        accuracy,
+        param.snr_db
     });
     
 
@@ -190,10 +239,31 @@ TEST_P(ASRModelTest, TranscribeAndVerify) {
 // -----------------------------------------------------------------------------
 // Dynamic Test Registration
 // -----------------------------------------------------------------------------
+static std::vector<AudioTestParam> build_all_params() {
+    std::vector<AudioTestParam> base = discover_relevant_data(kAudioFileDirectory, kAudioFileSentences);
+    std::vector<AudioTestParam> all;
+    for (auto const& p : base) {
+        all.push_back(p);                              /* original clip, snr=INF (no mix) */
+        if (p.noise != NoiseLevel::QUIET) continue;    /* only re-mix genuinely clean clips */
+        for (size_t b = 0; b < kNoiseBeds.size(); ++b) {
+            for (float snr : kSnrGrid) {
+                AudioTestParam v = p;
+                v.snr_db           = snr;
+                v.noise_path       = kNoiseBedDir + "/" + kNoiseBeds[b];
+                v.noise_offset_sec = static_cast<float>(p.sentence_idx) * 2.3f + static_cast<float>(b) * 5.7f;
+                all.push_back(v);
+            }
+        }
+    }
+    fprintf(stderr, "[SNR-SWEEP] base=%zu total=%zu (beds=%zu grid=%zu)\n",
+        base.size(), all.size(), kNoiseBeds.size(), kSnrGrid.size());
+    return all;
+}
+
 INSTANTIATE_TEST_SUITE_P(
     DynamicAudioFolder,
     ASRModelTest,
-    testing::ValuesIn(discover_relevant_data(kAudioFileDirectory, kAudioFileSentences))
+    testing::ValuesIn(build_all_params())
 );
 
 
