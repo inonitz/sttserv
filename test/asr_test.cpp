@@ -18,9 +18,9 @@ namespace fs = std::filesystem;
 
 static constexpr const char*                kAudioFileDirectory = "../../../../dependencies/recordings";
 static const std::string                    kAudioFileSentences = "sentences.txt"; 
-// --- SNR robustness sweep: gunfire/explosion beds mixed into the clean clips ---
+// --- SNR robustness sweep: high-energy noise beds mixed into the clean clips ---
 static const std::string              kNoiseBedDir = "../../../../dependencies/noise_beds";
-static const std::vector<std::string> kNoiseBeds   = { "battle_0.wav", "battle_1.wav", "battle_2.wav", "battle_3.wav" }; // firefight, explosion, artillery, rifle
+static const std::vector<std::string> kNoiseBeds   = { "noise_bed_0.wav", "noise_bed_1.wav", "noise_bed_2.wav", "noise_bed_3.wav" };
 static const std::vector<float>       kSnrGrid     = { 20,18,16,14,12,10,8,6,4,2,0,-2,-4,-6,-8,-10 };
 static std::vector<std::string>             gs_testSentences;
 std::unique_ptr<ModelBackend> ASRModelTest::sh_backend;
@@ -121,7 +121,7 @@ void ASRModelTest::TearDownTestSuite() {
     }
     if (!bySnr.empty()) {
         util2_fprintf(stdout, "--------------------------------------------------\n");
-        util2_fprintf(stdout, "Accuracy vs SNR (gunfire/explosion noise):\n");
+        util2_fprintf(stdout, "Accuracy vs SNR (high-energy noise):\n");
         util2_fprintf(stdout, "   SNR(dB)    n   mean_acc   median   pass>=75%%\n");
         for (auto it = bySnr.rbegin(); it != bySnr.rend(); ++it) {   /* easy -> hard */
             std::vector<f32> v = it->second;
@@ -162,7 +162,7 @@ TEST_P(ASRModelTest, TranscribeAndVerify) {
     ASSERT_EQ(MA_SUCCESS, destroyAudioDecoder(&audioReader));
 
 
-    /* SNR robustness sweep: mix a gunfire/explosion bed into the clean speech */
+    /* SNR robustness sweep: mix a high-energy noise bed into the clean speech */
     if (std::isfinite(param.snr_db) && !param.noise_path.empty()) {
         ma_decoder       noiseReader;
         std::vector<f32> noiseData;
