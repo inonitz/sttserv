@@ -16,8 +16,8 @@ struct STTSERVER_API CommandLineArguments {
     i32 mk_currChunkSize     = 0;
     i32 mk_postChunkSize     = 0;
 
-    bool mb_translateEnglish = false;
-    bool mb_FlashAttention   = true;
+    bool mb_translateToEnglish = false;
+    bool mb_FlashAttention     = true;
 
     std::string m_chosenBackend     = "sherpaonnx-parakeet"; /* whisper-whisper, whisper-parakeet, sherpaonnx-parakeet, sherpaonnx-whisper */
     BackendType m_chosenBackendType = BackendType::BACKEND_MAX;

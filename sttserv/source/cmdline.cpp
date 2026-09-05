@@ -41,7 +41,7 @@ bool parse_commandline_args(int argc, char** argv, CommandLineArguments& outPara
                                 cxxopts::value<std::string>(outParams.m_chosenBackend))
 
             // --- Whisper Backend Only ---
-            ("tr,translate",     "(Whisper Backend Only) translate to english",                       cxxopts::value<bool>(outParams.mb_translateEnglish)->implicit_value("true"))
+            ("tr,translate",     "(Whisper Backend Only) translate to english",                       cxxopts::value<bool>(outParams.mb_translateToEnglish)->implicit_value("true"))
             ("fa,flash-attn",    "(Whisper Backend Only) enable flash attention",                     cxxopts::value<bool>(outParams.mb_FlashAttention)->default_value("true"))
             ("m,model",          "(Whisper Backend Only) whisper-backend Whisper/Parakeet model path",cxxopts::value<std::string>(outParams.m_modelFullpath))
 
@@ -110,7 +110,7 @@ void print_arguments(const CommandLineArguments& args) {
     fprintf(stdout, "Device ID:         %d (%s)\n", args.m_deviceID, 
         args.m_deviceID == -1 ? "CPU" : "GPU"
     );
-    fprintf(stdout, "Translate (EN):    %s\n", args.mb_translateEnglish ? "true" : "false");
+    fprintf(stdout, "Translate (EN):    %s\n", args.mb_translateToEnglish ? "true" : "false");
     fprintf(stdout, "Flash Attention:   %s\n", args.mb_FlashAttention ? "true" : "false");
     fprintf(stdout, "Backend String:    %s\n", args.m_chosenBackend.c_str());
     fprintf(stdout, "Backend Type:      %s\n", backendTypeToString(args.m_chosenBackendType));

@@ -31,7 +31,7 @@ bool init_whisper_impl(ModelBackend* self, const CommandLineArguments& args) {
 
     state->full_params = whisper_full_default_params(WHISPER_SAMPLING_BEAM_SEARCH);
     state->full_params.n_threads            = args.m_numThreads;
-    state->full_params.translate            = args.mb_translateEnglish;
+    state->full_params.translate            = args.mb_translateToEnglish;
     state->full_params.no_timestamps        = true;
     state->full_params.single_segment       = true;
     state->full_params.initial_prompt       = kWhisperSystemPrompt;
