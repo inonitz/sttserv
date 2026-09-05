@@ -5,9 +5,15 @@
 
 
 struct WhisperBackendState {
-    whisper_context* ctx;
+    whisper_context*       ctx;
     whisper_context_params ctx_params;
-    whisper_full_params full_params;
+    whisper_full_params    full_params;
+    /* Duct Tape Solution - full_params.language is a pointer to a string, 
+        i.e. if the string doesn't exist anymore (which it might not), then good luck.
+        We copy the literal contents of full_params.language to language below it s.t. it persists.
+        Might need to be done with other vars. very sloppy coding by ggml.
+    */
+    std::string            language;
 };
 
 
@@ -28,18 +34,18 @@ bool init_whisper_impl(ModelBackend* self, const CommandLineArguments& args) {
     state->ctx = whisper_init_from_file_with_params(args.m_modelFullpath.c_str(), state->ctx_params);
     if (!state->ctx) { delete state; return false; }
 
-
+    state->language = args.m_lang; /* copy string directly instead of dangling ptr from args */
     state->full_params = whisper_full_default_params(WHISPER_SAMPLING_BEAM_SEARCH);
     state->full_params.n_threads            = args.m_numThreads;
-    state->full_params.translate            = args.mb_translateToEnglish;
+    state->full_params.translate            = args.mb_translateEnglish;
     state->full_params.no_timestamps        = true;
     state->full_params.single_segment       = true;
     state->full_params.initial_prompt       = kWhisperSystemPrompt;
     state->full_params.carry_initial_prompt = true;
-    state->full_params.language             = args.m_lang.c_str();
-    state->full_params.detect_language      = (args.m_lang == "auto");
+    state->full_params.language             = state->language.c_str();
+    state->full_params.detect_language      = (state->language == "auto");
     state->full_params.suppress_blank       = true;
-    state->full_params.beam_search.beam_size = 8;
+    state->full_params.beam_search.beam_size = 4;
 
     self->m_internalState = state;
     return true;
